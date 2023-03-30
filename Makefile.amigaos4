@@ -1,0 +1,85 @@
+# Comment/uncomment these to choose an installation destination
+# System wide installation
+#PREFIX=/usr/local
+#BINDIR=$(PREFIX)/bin
+#DOCDIR=$(PREFIX)/share/doc/$(TARGET)
+#PACKAGE_DATA_DIR=$(PREFIX)/share/$(TARGET)
+
+# Local installation within your home folder
+#PREFIX=$(HOME)/Games/$(TARGET)
+#BINDIR=$(PREFIX)
+#DOCDIR=$(PREFIX)/doc
+#PACKAGE_DATA_DIR=$(PREFIX)/data
+
+# Run from current folder i.e. no installation
+PREFIX=RAM:sz81
+BINDIR=$(PREFIX)
+DOCDIR=$(PREFIX)/Docs
+EXTRASDIR=$(PREFIX)/Extras
+PACKAGE_DATA_DIR=$(PREFIX)/data
+
+PACKAGE_DATA_DIR_INT=PROGDIR:data
+
+# For sz81 OSS_SOUND_SUPPORT is now synonymous with SDL_SOUND_SUPPORT.
+# Comment this out if you don't want sound support.
+SOUNDDEF=-DOSS_SOUND_SUPPORT
+
+# You won't need to alter these
+TARGET=$(shell cat TARGET)
+SOURCES=sdl_main.c common.c sound.c z80.c sdl_engine.c sdl_hotspots.c \
+	sdl_input.c sdl_loadsave.c sdl_resources.c sdl_sound.c sdl_video.c \
+	amiga.c
+OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
+VERSION=$(shell cat VERSION)
+DATE=$(shell date +%d.%m.%Y)
+
+# These should be ok for most
+SDL_CONFIG=sdl-config
+CFLAGS=-O3 -Wall `$(SDL_CONFIG) --cflags` -DVERSION=\"$(VERSION)\" \
+	-DDATE=\"$(DATE)\" \
+	-DPACKAGE_DATA_DIR=\"$(PACKAGE_DATA_DIR_INT)\" $(SOUNDDEF) -DSZ81 -use-dynld 
+LINK=$(CC)
+LDFLAGS=
+LIBS=`$(SDL_CONFIG) --libs` 
+
+# You won't need to alter anything below
+all: $(SOURCES) $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(LINK) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: all clean install
+
+clean:
+	rm -f *.o
+
+install:
+	@if [[ "$(PREFIX)" == .* ]] ; then \
+		echo "Installing into the current folder is not allowed."; \
+		exit 2; \
+	fi
+	mkdir -p $(BINDIR)
+	mkdir -p $(DOCDIR)
+	mkdir -p $(PACKAGE_DATA_DIR)
+	mkdir -p $(EXTRASDIR)
+	mkdir -p $(EXTRASDIR)/def_icons
+	cp -p $(TARGET) $(BINDIR)
+	cp amiga/sz81.info $(BINDIR)
+	if [ -f amiga/*.sz81rc ]; then cp amiga/*.sz81rc $(EXTRASDIR); fi
+	cp amiga/def_icons/* $(EXTRASDIR)/def_icons
+	cp AUTHORS COPYING ChangeLog NEWS README $(DOCDIR)
+	cp amiga/sz81.readme T:
+	cp data/*.bmp $(PACKAGE_DATA_DIR)
+	if [ -f data/zx80.rom ]; then cp data/zx80.rom $(PACKAGE_DATA_DIR); fi
+	if [ -f data/zx81.rom ]; then cp data/zx81.rom $(PACKAGE_DATA_DIR); fi
+	echo >>t:sz81.readme "$(VERSION)\n"
+	cat t:sz81.readme $(DOCDIR)/README >$(DOCDIR)/sz81.readme
+	rm t:sz81.readme
+	
+uninstall:
+	@echo "Uninstalling is not currently implemented."
+
+

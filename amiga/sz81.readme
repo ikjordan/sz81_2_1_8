@@ -1,0 +1,8 @@
+Short:        Sinclair ZX80/ZX81/TS1000 emulator
+Author:       Russell Marks, Ian Collier, Thunor, Chris Young
+Uploader:     chris@unsatisfactorysoftware.co.uk (Chris Young)
+Type:         misc/emu
+URL:          http://sz81.sourceforge.net
+Architecture: ppc-amigaos >= 4.0.0
+Requires:     libSDL-1.2.so (http://code.google.com/p/os4sdl/)
+Version:      

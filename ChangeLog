@@ -1,0 +1,338 @@
+Please see NEWS for a summary of changes since the last release suitable
+for announcements.
+
+2011-02-13 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1.7 released (r202)
+
+2011-02-10 Thunor <thunorsif_at_hotmail.com>
+* Added a dynamic modal dialog.
+* Added an exit dialog to confirm writing to sz81rc.
+* Added Win32 support via the _WIN32 preprocessor macro.
+
+2011-02-03 Thunor <thunorsif_at_hotmail.com>
+* Added dragging ability to hotspots via SDL_DRAGGED state (very easy).
+* Added a ZX style scrollbar to the load file dialog for mouse control.
+
+2011-01-30 Thunor <thunorsif_at_hotmail.com>
+* Added pausing the emulator via Pause (SDLK_PAUSE). For platforms that
+  don't have a Pause key, adding a ctrl_remap to sz81rc that remaps
+  an input control to SDLK_PAUSE will enable access to this feature.
+  The load/save state dialogs place the emulator on hold in any case.
+
+2011-01-30 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* OS4 sz81 LOAD/SAVE now follows the last used directory.  Set tooltype
+  STATICLOADDIR to revert to previous behaviour.
+
+2011-01-29 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* Create a useful program dir in LOCAL_DATA_DIR, and make the Amiga
+  version use it by default for all loads and saves.
+
+2011-01-28 Thunor <thunorsif_at_hotmail.com>
+* Added saving screenshots via PrtScn (SDLK_PRINT). For platforms that
+  don't have a PrtScn key, adding a ctrl_remap to sz81rc that remaps
+  an input control to SDLK_PRINT will enable access to this feature.
+
+2011-01-27 Thunor <thunorsif_at_hotmail.com>
+* Added save state and load state icons to the control bar.
+
+2011-01-26 Thunor <thunorsif_at_hotmail.com>
+* Added a save state system (F4/F5) although awaiting integration into
+  the control bar.
+
+2011-01-16 Thunor <thunorsif_at_hotmail.com>
+* Replaced z81's save_p: ZX80 files can now be named by default as date
+  and time stamped or extracted from a xxxx REM SAVE "progname" line.
+
+2011-01-14 Thunor <thunorsif_at_hotmail.com>
+* Added forced (non-LOAD) program loading via the load file dialog.
+* Replaced z81's machine reset method with a thorough emulator reset.
+
+2011-01-13 Thunor <thunorsif_at_hotmail.com>
+* Added support for ZX80 LOAD and ZX81 LOAD "" loading of o/80/p/81 
+  files via a new load file dialog.
+
+2011-01-11 Thunor <thunorsif_at_hotmail.com>
+* Auto-loading of 80 and 81 files is implemented as o and p.
+* The ZX81's LOAD "progname" will now open a file as lower or uppercase
+  within the directory currently set within the load file dialog.
+
+2011-01-10 Thunor <thunorsif_at_hotmail.com>
+* Modified supported RAM sizes: it's now 1 to 4K, 16, 32, 48 and 56K.
+* Auto-loading of ZX80 o and ZX81 p files is now implemented for all
+  RAM configurations.
+
+2011-01-07 Thunor <thunorsif_at_hotmail.com>
+* Added support for the mouse wheel: remapped as keyboard cursor keys.
+
+2010-12-20 Thunor <thunorsif_at_hotmail.com>
+* Added show_input_id to the rcfile (was a CLI option).
+* Implemented variable emulation speed but I haven't yet managed to
+  iron out the problems with slowing down and speeding up the sound
+  (if at all I can) so I've disabled the code for the time being.
+
+2010-12-18 Thunor <thunorsif_at_hotmail.com>
+* Added sound device selection to the runtime options.
+* Added sound device to the rcfile.
+
+2010-12-15 Thunor <thunorsif_at_hotmail.com>
+* Added frameskip adjustment to the runtime options.
+* Added frameskip to the rcfile.
+
+2010-12-14 Thunor <thunorsif_at_hotmail.com>
+* Added RAM size changing to the runtime options.
+* Added RAM size to the rcfile.
+
+2010-12-13 Thunor <thunorsif_at_hotmail.com>
+* Added vkeyb autohide, toggle_shift and alpha to the rcfile.
+* Added invert screen to the rcfile.
+
+2010-12-12 Thunor <thunorsif_at_hotmail.com>
+* Added machine model switching to the runtime options.
+* Added machine model to the rcfile.
+
+2010-12-08 Thunor <thunorsif_at_hotmail.com>
+* Added support for (in addition to z81's 1K to 16K) 32K, 48K and 56K of
+  RAM. load_p now loads up to 48K instead of z81's 16K limit.
+
+2010-12-07 Thunor <thunorsif_at_hotmail.com>
+* Added support for a thorough runtime reinitialisation of z81 (sz81
+  was tweaked a little). RAM and ROM changes have been tested to work.
+
+2010-12-06 Thunor <thunorsif_at_hotmail.com>
+* Added a function to preload the ROMs which will enable the emulator
+  to switch between them at runtime without repeatedly loading them.
+* Modified vkeyb_init to load both keyboard images on initialisation.
+
+2010-12-05 Thunor <thunorsif_at_hotmail.com>
+* Added two runtime options pages and moved the original two.
+* Modified the ZX printer filename to include the date and time.
+
+2010-12-04 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* Updated Amiga sections to reflect recent changes.
+* Modified ZX printer so the output file is not opened until something
+  is printed.
+
+2010-12-02 Thunor <thunorsif_at_hotmail.com>
+* Removed most of the command-line interface leaving only the video
+  options. sz81 now manages the CLI which makes parseoptions redundant.
+* Added support for a platform dependent local data directory which is
+  currently used to locate the permanently operational ZX printer file.
+* Completely reorganised main in smain.c. Since configuring sz81 via
+  the CLI is now redundant, sz81 is initialised before the emulator so
+  that the emulator will now initialise using rcfile data.
+
+2010-11-25 Thunor <thunorsif_at_hotmail.com>
+* Added support for assembling pipepanic and mctemplate using Pasmo.
+* Added ZX80 ROM source code recreated from disassembling the binary.
+
+2010-11-24 Thunor <thunorsif_at_hotmail.com>
+* Conventionalised and tweaked the build system a little more.
+* Reorganised the newly added Open81 content in preparation for the
+  soon to be included Open80 content.
+
+2010-07-15 Thunor <thunorsif_at_hotmail.com>
+* Both the mctemplate and PipePanic game are complete.
+
+2010-05-11 Thunor <thunorsif_at_hotmail.com>
+* Added a ZX81 machine code template and a pipe connecting game which
+  is still under development.
+
+2010-05-06 Thunor <thunorsif_at_hotmail.com>
+* Tweaked GPH GP2X Wiz support.
+
+2010-05-04 Thunor <thunorsif_at_hotmail.com>
+* Added support for the GPH GP2X Wiz.
+
+2010-04-30 Thunor <thunorsif_at_hotmail.com>
+* Changed the way sdl_rcfile_read() manages reading ctrl_remaps: If one
+  or more ctrl_remaps were read then they will completely replace the
+  existing default ctrl_remaps, and if none were read then the defaults
+  will remain.
+
+2010-04-28 Thunor <thunorsif_at_hotmail.com>
+* Added fullscreen, xres and yres command line options.
+* Added keyboard page up and page down to the load selector.
+
+2010-04-27 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1.6.1 released
+* Fixed a few issues with the joystick configurator.
+
+2010-04-26 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1.6 released
+* Added an alternative keyboard based control remapper (F9) for users
+  with single buttoned joysticks.
+
+2010-04-25 Thunor <thunorsif_at_hotmail.com>
+* The joystick configurator and runtime options are now complete.
+
+2010-04-19 Thunor <thunorsif_at_hotmail.com>
+* Fixed a z81 bug in common.c:load_selector() whereby the parent dir
+  wasn't always returned by readdir() which would result in the load
+  selector not finding any suitable files in a folder and closing
+  prematurely, and also becoming stuck in a folder with no way out.
+  I experienced this on my Sharp Zaurus.
+* Tweaked the selector navigation within runopts and added joystick
+  LTrig/RTrig pageup and pagedown control remappings to the load
+  selector (I've already added them to runopts).
+
+2010-04-18 Thunor <thunorsif_at_hotmail.com>
+* Excluding the configurator, both runtime options pages are now fully
+  functional and navigable using the keyboard (cursors and enter),
+  mouse or joystick. The control remappings have been significantly
+  updated and so any existing rcfile will have to be deleted; later
+  I'll check for an old rcfile in code and ignore it.
+
+2010-04-17 Thunor <thunorsif_at_hotmail.com>
+* Added a message box manager which is currently used when saving from
+  runopts or changing the volume (default -/= or use mouse in runopts).
+
+2010-04-16 Thunor <thunorsif_at_hotmail.com>
+* Runtime options now works i.e. the changes are saved or discarded.
+  The joystick configurator and selector navigation will be implemented
+  later when I'm happy with the layout and scalability looks good.
+
+2010-04-15 Thunor <thunorsif_at_hotmail.com>
+* Optimised vkeyb drawing: when alpha is 0 it's no longer rendered.
+
+2010-04-14 Thunor <thunorsif_at_hotmail.com>
+* Re-engineered the way the runtime options are set-up so that it's
+  easier to modify. The hotspots though remain manually configured.
+* The vkeyb state is now restored after accessing runtime options.
+* Added key repeat delay and interval to the rcfile.
+* Added sound volume to the rcfile.
+* Added a runtime options icon to the control bar.
+* Reorganised runtime option locations across pages.
+
+2010-04-13 Thunor <thunorsif_at_hotmail.com>
+* Added fg/bg colour adjustment to the runtime options.
+* Fixed a bug in BMF_RenderText: the new fg_colour wasn't being stored.
+* BMF_RenderText will now reuse the least requested slot if necessary.
+
+2010-04-12 Thunor <thunorsif_at_hotmail.com>
+* Added joystick dead zone adjustment to the runtime options.
+* Added volume control adjustment to the runtime options.
+* Added key repeat delay/interval adjustment to the runtime options.
+
+2010-03-31 Thunor <thunorsif_at_hotmail.com>
+* Replaced the OSS (Open Sound System) API with the portable SDL API.
+
+2010-03-24 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1-5 released
+
+2010-03-22 Thunor <thunorsif_at_hotmail.com>
+* Fixed an issue with the load selector changing the working directory
+  and the GP2X's relatively referenced rcfile being written elsewhere.
+* Added -d command line option to show any input device IDs on-screen.
+* A sample joystick control set is written to newly created PC rcfiles.
+
+2010-03-21 Thunor <thunorsif_at_hotmail.com>
+* Added a protected property to ctrl_remaps to prevent modifying some
+  important universally active controls such as toggle-keyboard.
+* Tweaked the blinking selector speed.
+
+2010-03-20 Thunor <thunorsif_at_hotmail.com>
+* Changed ZX80's vkeyb selected default to W for LOAD.
+* Added the modifiable project colours to the rcfile.
+* Added runtime joystick controls remapping feature to enable the
+  remapping of existing controls allocated for use within the emulator
+  (COMP_EMU) or new controls for use throughout the program (COMP_ALL).
+
+2010-03-19 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* Added RESOURCEFILE tooltype for Amiga build to configure where
+  the rcfile is located (and the filename)
+
+2010-03-18 Thunor <thunorsif_at_hotmail.com>
+* Added an rcfile sz81rc which is located wherever the target platform
+  requires it to be. Currently the joystick_dead_zone and the control
+  remappings are written to and read from it but there'll be more.
+  I've designed it so that the same macro names used in the code can
+  be used within the configuration items.
+
+2010-03-15 Thunor <thunorsif_at_hotmail.com>
+* For some reason I had the GNU GPL v3 at the top of my sdl.c/h when
+  I should have used the same v2 from z81. I've now fixed them.
+* I've split the 3100+ line sdl.c up into several more organised files.
+
+2010-03-14 Thunor <thunorsif_at_hotmail.com>
+* Vkeyb hotspots now have transparent corners, and their alpha's
+  increase/decrease in relative units which means that they can still
+  be seen when the vkeyb is almost invisible.
+* Changed load selector selected default to Enter, and vkeyb to J.
+* Fixed a situation whereby joystick fake-mouse button events and
+  real mouse button events being both used to hit hotspots would leave
+  a key unreleased. Admittedly this isn't going to happen under most
+  situations and I found it through testing using multiple input
+  devices, but now one joystick and one mouse can coexist together
+  which is as many of these devices that this program is going to
+  handle at any one time. Now it's possible (if such a game exists)
+  for two players to use the same virtual keyboard - cool :D
+
+2010-03-13 Thunor <thunorsif_at_hotmail.com>
+* Added key repeating within the GUI for selected features.
+* Adjusted the units of alpha used in the opacity DN/UP hotspots to
+  16 since key repeating now makes this usable and more desirable.
+ 
+2010-03-12 Thunor <thunorsif_at_hotmail.com>
+* Reworked the control remapping feature. Now a device can be
+  remapped to any other device including a virtual cursor device, and
+  be tied to a particular component such as the load selector.
+* Added joystick support throughout. Joystick controls are currently
+  hardcoded control remappings awaiting transferral to an rcfile.
+
+2010-03-10 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* Added version string for the AmigaOS4 build.
+* Fixed AUTOLIST tooltype.
+
+2010-03-09 Thunor <thunorsif_at_hotmail.com>
+* Appended z81's Makefile and docs with .z81 and added new files for
+  our use since now sz81 is the main target.
+* Reorganised some newly added files.
+* Added a new sz81 specific Makefile and an AUTHORS file.
+
+2010-03-08 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1-4 released
+* An SDL timer now manages timing if sound isn't being enabled from the
+  command line or OSS_SOUND_SUPPORT is not enabled within the Makefile.
+
+2010-03-05 Thunor <thunorsif_at_hotmail.com>
+* Added some additional controls and reorganised them all.
+* Shifted the ZX80 screen leftwards 2 chars since it causes problems
+  with portrait orientated screens (is that a bug?).
+
+2010-03-03 Thunor <thunorsif_at_hotmail.com>
+* Added a control bar with several useful options that appear alongside
+  the virtual keyboard.
+* Added three Sinclair fonts, two for the control bar and the ZX
+  Spectrum's for future use within the GUI.
+
+2010-02-28 Chris Young <chris_at_unsatisfactorysoftware.co.uk>
+* Added code for the AmigaOS4 build.
+
+2010-02-27 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1-3 released
+* Added virtual keyboard opacity adustment and autohide on newline;
+  both currently modifiable via keyboard controls.
+
+2010-02-25 Thunor <thunorsif_at_hotmail.com>
+* Hotspots now animate when pressed.
+
+2010-02-23 Thunor <thunorsif_at_hotmail.com>
+* Hotspot engine for the mouse/stylus is now fully functional (although
+  awaiting semi-opaque highlights) and SHIFT can be sticky or a toggle
+  (a future runtime modifiable option).
+
+2010-02-18 Thunor <thunorsif_at_hotmail.com>
+* Added a hotspot engine for virtual keyboard input.
+* Added joystick support for all platforms.
+
+2010-02-17 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1-2 released
+* Added new keyboard images.
+* Emulator now centred regardless of resolution.
+
+2010-02-14 Thunor <thunorsif_at_hotmail.com>
+* Version 2.1-1 released - initial stable and fully functioning (except
+  OSS sound) SDL port of z81.
+
+
+

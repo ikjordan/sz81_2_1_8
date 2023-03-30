@@ -1,0 +1,72 @@
+2014-04-13
+* 2.1.8 unoffical version (by Erik Olofsen) with provisional
+  patches to z80.c, edops.c, and common.c:
+  common.c: out at 0xfd should turn off vsync as well
+  edops.c: correction to extended instruction address
+  z80.c: check for display information (ideally the timing should be corrected),
+         use IR to get information, avoid early fake vsyncs
+* enabled the emulator speed option
+
+2011-02-13
+* 2.1.7 released
+* Added forced (non-LOAD) program loading via a load file dialog
+* Added a save state system for saving and loading sz81 save states
+* Moved command-line emulation options to GUI runtime options
+* Added support for 1 to 4, 16, 32, 48 and 56K RAM (UDG now works)
+* Added the ability to save screenshots via PrtScn (SDLK_PRINT)
+* Added support for o, 80, p and 81 program file types
+* Added autoloading of ZX80 program files in addition to the ZX81
+* Added sequential filenaming for ZX80, printer and screenshot files
+* Added a ZX80 BASIC xxxx REM SAVE "progname" filenaming hack
+* Added an emulator pause feature via Pause (SDLK_PAUSE)
+* Added mouse wheel support, used within the load file dialog
+* Added a machine code PipePanic game and a machine code template
+* Added the GNU GPL'd Open80 and Open81 source code and ROMs
+* Added Win32 support via the _WIN32 preprocessor macro
+* Applied several graphical and usability tweaks
+* Fixed a couple of bugs
+
+2010-04-27
+* 2.1.6.1 released
+* Fixed a few issues with the joystick configurator
+
+2010-04-26
+* 2.1.6 released
+* Added a joystick configurator
+* Added fg/bg colour adjustment
+* Added joystick dead zone adjustment
+* Added volume control adjustment
+* Added key repeat delay/interval adjustment
+* Added a runtime options system
+* Replaced the Open Sound System (OSS) code with the SDL API
+* Fixed a couple of bugs
+
+2010-03-24
+* 2.1-5 released
+* Added joystick support throughout with runtime control remapping
+* Added a configuration file to accommodate reconfigurable properties
+* Added control delay/repeating for selected GUI features
+* Applied several graphical and usability tweaks
+
+2010-03-08
+* 2.1-4 released
+* Converted non OSS timing to use a more portable SDL timer
+* Added an icon based control bar with several useful options
+* Added ZX bitmap fonts and a bitmap font engine for future use within
+  the GUI
+* Added Chris Young's AmigaOS4 specific code
+
+2010-02-27
+* 2.1-3 released
+* Added mouse/stylus interactivity to the keyboard with adjustable
+  opacity and autohide on newline
+
+2010-02-17
+* 2.1-2 released
+* Added new keyboard images
+* The renderer now centres the emulator regardless of resolution
+
+2010-02-14
+* 2.1-1 released
+* Initial stable and fully functioning (except OSS sound) SDL port
+  of z81

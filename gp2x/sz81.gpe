@@ -1,0 +1,6 @@
+#!/bin/sh
+
+./sz81 2>&1 > sz81log.txt
+sync
+cd /usr/gp2x
+exec ./gp2xmenu

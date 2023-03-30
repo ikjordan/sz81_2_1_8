@@ -45,23 +45,61 @@ unsigned char *vptr;
 /* redraw the screen */
 
 void update_scrn(void) {
+#if 0
 	unsigned char *ptr, *optr, d;
 	int x, y, a, mask;
+#else
+	unsigned char *ptr;
+	int x, y;
+#endif
 
-	for (y = 0; y < ZX_VID_VGA_HEIGHT; y++) {
-		ptr = scrnbmp + (y + ZX_VID_VGA_YOFS) * 
+	// Need to step through every bit, but only write out
+	// lines starting at line ZX_VID_VGA_YOFS for
+	// ZX_VID_VGA_HEIGHT lines. For each line write
+	// from ZX_VID_VGA_XOFS in each line
+	ptr = scrnbmp;
+	int bit = 7;
+	unsigned char val = 0;
+
+	for (y = 0; y < ZX_VID_FULLHEIGHT; y++)
+	{
+		for (x = 0; x < ZX_VID_FULLWIDTH; x++)
+		{
+			val = (((*ptr) >> bit) & 0x1);
+			bit--;
+			if (bit < 0)
+			{
+				bit = 7;
+				ptr++;
+			}
+			if ((y >= ZX_VID_VGA_YOFS) && (y < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)) &&
+			    (x >= ZX_VID_VGA_XOFS) && (y < (ZX_VID_VGA_WIDTH + ZX_VID_VGA_XOFS)))
+			{
+				vptr[(y - ZX_VID_VGA_YOFS) * 320 + (x -ZX_VID_VGA_XOFS)] = val ? 0 : 15;
+			}
+		}
+	}
+
+#if 0
+	for (y = 0; y < ZX_VID_VGA_HEIGHT; y++)
+	{
+
+		ptr = scrnbmp + (y + ZX_VID_VGA_YOFS) *
 			ZX_VID_FULLWIDTH / 8 + ZX_VID_VGA_XOFS / 8;
 		optr = scrnbmp_old + (ptr - scrnbmp);
-		for (x = 0; x < ZX_VID_VGA_WIDTH; x += 8, ptr++, optr++) {
+
+		for (x = 0; x < ZX_VID_VGA_WIDTH; x += 8, ptr++, optr++)
+		{
 			d = *ptr;
-			if (d != *optr || refresh_screen) {
+			if (d != *optr || refresh_screen)
+			{
 				if (sdl_emulator.invert) d = ~d;
 				for (a = 0, mask = 128; a < 8; a++, mask >>= 1)
 					vptr[y * 320 + x + a] = ((d & mask)?0:15);
 			}
 		}
 	}
-
+#endif
 	/* now, copy new to old for next time */
 	memcpy(scrnbmp_old, scrnbmp, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
 
@@ -187,7 +225,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stdout, "PACKAGE_DATA_DIR is %s\n", PACKAGE_DATA_DIR);
 
 			/* Set the video mode, set-up component screen offsets,
-			 * initialise fonts, icons, vkeyb and control bar */ 
+			 * initialise fonts, icons, vkeyb and control bar */
 			retval = sdl_video_setmode();
 			if (!retval) {
 

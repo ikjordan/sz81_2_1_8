@@ -703,6 +703,7 @@ return(0);
 
 
 unsigned int in(int h,int l)
+#if 1
 {
 int ts=0;		/* additional cycles*256 */
 int tapezeromask=0x80;	/* = 0x80 if no tape noise (?) */
@@ -763,8 +764,66 @@ switch(l)
 return(ts|255);
 }
 
+//unsigned int ZX81Emulator::in(int h,int l)
+#else
+{
+	int ts=0;		/* additional cycles*256 */
+	int tapezeromask=0x80;
+	// Check whether a tape is currently running...
+	//int tapeoff=(int)((__int64)(tstates-tapeSignal.origin)*22050/3250000);
+	//if(tapeoff<tapeSignal.length)
+	//	tapezeromask=tapeSignal.data[tapeoff];
+
+	if(!(l&4)) l=0xfb;
+	if(!(l&1)) l=0xfe;
+
+	switch(l)
+	{
+	case 0xfe:
+		/* also disables hsync/vsync if nmi off
+		* (yes, vsync requires nmi off too, Flight Simulation confirms this)
+		*/
+		if(!nmigen)
+		{
+			hsyncgen=0;
+
+			vsync=1;
+		}
+
+		switch(h)
+		{
+		case 0xfe:	return(ts|(keyports[0]^tapezeromask));
+		case 0xfd:	return(ts|(keyports[1]^tapezeromask));
+		case 0xfb:	return(ts|(keyports[2]^tapezeromask));
+		case 0xf7:	return(ts|(keyports[3]^tapezeromask));
+		case 0xef:	return(ts|(keyports[4]^tapezeromask));
+		case 0xdf:	return(ts|(keyports[5]^tapezeromask));
+		case 0xbf:	return(ts|(keyports[6]^tapezeromask));
+		case 0x7f:	return(ts|(keyports[7]^tapezeromask));
+		default:
+			{
+				int i,mask,retval=0xff;
+
+				/* some games (e.g. ZX Galaxians) do smart-arse things
+				* like zero more than one bit. What we have to do to
+				* support this is AND together any for which the corresponding
+				* bit is zero.
+				*/
+				for(i=0,mask=1;i<8;i++,mask<<=1)
+					if(!(h&mask))
+						retval&=keyports[i];
+				return(ts|(retval^tapezeromask));
+			}
+		}
+		break;
+	}
+
+	return(ts|255);
+}
+#endif
 
 unsigned int out(int h,int l,int a)
+#if 1
 {
 /* either in from fe or out to ff takes one extra cycle;
  * experimentation strongly suggests not only that out to
@@ -808,10 +867,10 @@ switch(l)
     return(ts|printer_inout(1,a));
   case 0xfd:
     nmigen=0;
-    if(vsync)
-      vsync_lower();
-    vsync=0;
-    hsyncgen=1;
+    //if(vsync)
+    //  vsync_lower();
+    //vsync=0;
+    //hsyncgen=1;
 #ifdef OSS_SOUND_SUPPORT
     sound_beeper(vsync);
 #endif
@@ -825,8 +884,8 @@ switch(l)
     /* falls through, if zx80 */
   case 0xff:	/* XXX should *any* out turn off vsync? [copied to 0xfd] */
     /* fill screen gap since last raising of vsync */
-    if(vsync)
-      vsync_lower();
+    //if(vsync)
+    // vsync_lower();
     vsync=0;
     hsyncgen=1;
 #ifdef OSS_SOUND_SUPPORT
@@ -837,7 +896,41 @@ switch(l)
 
 return(ts);
 }
+//unsigned int ZX81Emulator::out(int h,int l,int a)
+#else
+{
+	/* either in from fe or out to ff takes one extra cycle;
+	* experimentation strongly suggests not only that out to
+	* ff takes one extra, but that *all* outs do.
+	*/
+	int ts=1;	/* additional cycles */
 
+
+	if(!(l&4)) l=0xfb;
+	if(!(l&2)) l=0xfd;
+	if(!(l&1)) l=0xfe;
+
+	/*printf("out %2X\n",l);*/
+
+	switch(l)
+	{
+	case 0xfd:
+		nmigen=0;
+		break;
+	case 0xfe:
+		if((!zx80))
+			nmigen=1;
+		break;
+	case 0xff:	/* XXX should *any* out turn off vsync? */
+		vsync=0;
+		hsyncgen=1;
+		break;
+	}
+
+	return(ts);
+}
+
+#endif
 
 #ifndef SZ81	/* Added by Thunor */
 /* the ZX81 char is used to index into this, to give the ascii.

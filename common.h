@@ -28,8 +28,10 @@
 /* full internal image with overscan (but not hsync/vsync areas) */
 #define ZX_VID_MARGIN		55
 #define ZX_VID_HMARGIN		(8*8)
-#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
-#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
+//#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
+//#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
+#define ZX_VID_FULLWIDTH	(207*2)	/* sic */
+#define ZX_VID_FULLHEIGHT	314
 
 /* ahem :-) */
 #define FUDGE_FACTOR		(3*8)

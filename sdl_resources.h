@@ -30,7 +30,7 @@
 #if defined(_WIN32)
 	#define RESOURCE_FILE "sz81.ini"
 #else
-	#define RESOURCE_FILE "sz81rc"
+	#define RESOURCE_FILE "sz81rc_explore"	// To allow multiple instances
 #endif
 #define LOCAL_PRTOUT_DIR "prtout"
 #define LOCAL_SAVSTA_DIR "savsta"

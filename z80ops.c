@@ -176,7 +176,7 @@ instr(13,4);
    dec(c);
 endinstr;
 
-instr(14,4);
+instr(14,7);			// BUG FIX
    c=fetch(pc),pc++;
 endinstr;
 
@@ -247,7 +247,7 @@ instr(29,4);
    dec(e);
 endinstr;
 
-instr(30,4);
+instr(30,7);				// BUG FIX
    e=fetch(pc),pc++;
 endinstr;
 
@@ -379,7 +379,7 @@ instr(45,4);
    }
 endinstr;
 
-instr(46,4);
+instr(46,7);					// BUG FIX
    setxl(fetch(pc));
    pc++;
 endinstr;
@@ -461,7 +461,7 @@ instr(61,4);
    dec(a);
 endinstr;
 
-instr(62,4);
+instr(62,7);			// BUG FIX
    a=fetch(pc),pc++;
 endinstr;
 

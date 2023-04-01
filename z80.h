@@ -15,7 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
+#include <stdbool.h>
 #define Z80_quit  1
 #define Z80_NMI   2
 #define Z80_reset 3
@@ -38,6 +38,7 @@ extern void z80_reset(void);
 
 #define fetch(x) (memptr[(unsigned short)(x)>>10][(x)&1023])
 #define fetch2(x) ((fetch((x)+1)<<8)|fetch(x))
+#define fetchm(x) (pc<0xC000 ? fetch(pc) : fetch(pc&0x7fff))
 
 /* due to timing constraints, we presume that only one-byte stores
  * are used by programs for memory-mapped AY addons.
@@ -61,11 +62,20 @@ extern void z80_reset(void);
 #define AY_STORE_CHECK(x,y)  /* nothing */
 #endif
 
+#define QSUDG_STORE_CHECK(x,y) \
+         if(useUDG) {\
+            if (x>=0x8400 && x<0x8800){\
+               font[x-0x8400] = y;\
+               UDGEnabled = true;\
+            }\
+         }\
+
 #define store(x,y) do {\
           unsigned short off=(x)&1023;\
           unsigned char page=(unsigned short)(x)>>10;\
           int attr=memattr[page];\
           AY_STORE_CHECK(x,y) \
+          QSUDG_STORE_CHECK(x,y) \
           if(attr){\
              memptr[page][off]=(y);\
              }\

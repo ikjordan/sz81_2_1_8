@@ -24,7 +24,7 @@
  *
  * NB: *everything* horizontal here must be exactly divisible by 8.
  */
-
+#include <stdbool.h>
 /* full internal image with overscan (but not hsync/vsync areas) */
 #define ZX_VID_MARGIN		55
 #define ZX_VID_HMARGIN		(8*8)
@@ -66,6 +66,7 @@
 
 extern unsigned char mem[];
 extern unsigned char *memptr[64];
+extern unsigned char font[1024];
 extern int memattr[64];
 extern unsigned char keyports[9];
 extern unsigned long tstates,tsmax;
@@ -82,6 +83,12 @@ extern int fakedispx,fakedispy;
 extern int refresh_screen;
 extern int zx80;
 extern int ignore_esc;
+
+/* Test variables */
+extern bool m1not;
+extern bool SRAM;
+extern bool useUDG;
+extern bool UDGEnabled;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);

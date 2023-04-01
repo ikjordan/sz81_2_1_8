@@ -18,7 +18,6 @@
  */
 
 #include <string.h>	/* for memset/memcpy */
-#include <stdbool.h>
 #include "common.h"
 #include "sound.h"
 #include "z80.h"
@@ -51,9 +50,9 @@ unsigned char partable[256]={
 unsigned long tstates=0,tsmax=65000,frames=0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
-unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8]; /* written */
-unsigned char scrnbmp[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];	/* displayed */
-unsigned char scrnbmp_old[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];
+unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT>>3]; /* written */
+unsigned char scrnbmp[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT>>3];	/* displayed */
+unsigned char scrnbmp_old[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT>>3];
 						/* checked against for diffs */
 
 #ifdef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
@@ -109,12 +108,12 @@ void vsync_lower(void)
   {
     /* must be wrapping around a frame edge; do bottom half */
     for(y=vsy;y<ZX_VID_FULLHEIGHT;y++)
-      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH/8),0xff,ZX_VID_FULLWIDTH/8);
+      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
     vsy=0;
   }
 
   for(y=vsy;y<ny;y++)
-    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH/8),0xff,ZX_VID_FULLWIDTH/8);
+    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
 }
 
 #ifndef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
@@ -136,6 +135,7 @@ int hsyncskip=0;
 int framewait=0;
 int minx = ZX_VID_FULLHEIGHT;
 int maxx = 0;
+bool videodata = false;
 
 #ifdef SZ81	/* Added by Thunor */
 void mainloop()
@@ -242,9 +242,16 @@ void mainloop()
     ixoriy=new_ixoriy;
     new_ixoriy=0;
     intsample=1;
-    op=fetch(pc&0x7fff);
+    op = fetchm(pc);
 
-    if (pc&0x8000 && !(op&64) && linestate==0)
+    if (m1not && pc<0xC000)
+    {
+      videodata = false;
+    } else {
+      videodata = ((pc&0x8000) != 0);
+    }
+
+    if (videodata && (!(op&64) && linestate==0))
     {
       nrmvideo = i<0x20 || radjust==0xdf;
       linestate = 1;
@@ -268,34 +275,51 @@ void mainloop()
 
     if (!nrmvideo) ulacharline = 0;
 
-    if((pc&0x8000) && !(op&64))
+    if(videodata && !(op&64))
     {
 /*    printf("ULA %3d,%3d = %02X\n",x,y,op);*/
       if(liney>=0 && liney<ZX_VID_FULLHEIGHT &&
         linex>=0 && linex<(ZX_VID_FULLWIDTH>>1))
       {
-        int v;
+        unsigned char v=0;
+
+        maxx = (maxx>linex) ? maxx : linex;
+        minx = (minx<linex) ? minx : linex;
 
         if (nrmvideo)
-          v=mem[((i&0xfe)<<8)|((op&63)<<3)|ulacharline];
-        else
-          v=mem[(i<<8)|(r&0x80)|(radjust&0x7f)];
-
-        minx = (minx < linex) ? minx : linex;
-        maxx = (maxx > linex) ? maxx : linex;
-
-        int p = linex>>2;
-        int b = (linex&0x3)<<1;
-        unsigned char c = (op&128)?~v:v;
-
-        if (b)
         {
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(c>>b);
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(c<<(8-b));
+          int addr = ((i&0xfe)<<8)|((op&63)<<3)|ulacharline;
+          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
+          {
+            v = font[addr-((op&128)?0x1C00:0x1E00)];
+          }
+          else
+          {
+            v = mem[addr];
+          }
         }
         else
         {
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=c;
+          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
+          if ((addr < 0x4000) || SRAM)
+          {
+            /* If WRX memory not present then will read ROM shadow image instead */
+            v = mem[addr];
+          }
+        }
+
+        int p = linex>>2;
+        int b = (linex&0x03)<<1;
+        v = (op&128)?~v:v;
+
+        if (b)
+        {
+          scrnbmp_new[liney*(ZX_VID_FULLWIDTH>>3)+p++]|=(v>>b);
+          scrnbmp_new[liney*(ZX_VID_FULLWIDTH>>3)+p]=(v<<(8-b));
+        }
+        else
+        {
+          scrnbmp_new[liney*(ZX_VID_FULLWIDTH>>3)+p]=v;
         }
       }
       op=0;	/* the CPU sees a nop */

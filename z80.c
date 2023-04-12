@@ -368,7 +368,8 @@ void mainloop()
           /* FAST mode screws up without this, but it's a bit
           * unpleasant... :-/
           */
-          tstates=nextlinetime - 7; // Galaxians
+          //tstates=nextlinetime - 7; // Galaxians
+          tstates=nextlinetime;
         }
       }
       else
@@ -495,8 +496,7 @@ void mainloop()
           case 1: /* undocumented */
           case 2: /* IM 1 */
             /* there is little to distinguish between these cases */
-            tstates+=8; /* perhaps */
-            push2(pc);
+            tstates+=8;
             pc=0x38;
           break;
           case 3: /* IM 2 */

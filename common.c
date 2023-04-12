@@ -61,7 +61,7 @@ int invert_screen=0;
 
 /* Test variables */
 bool m1not = false;
-bool SRAM = false;
+bool SRAM = true;
 bool UDGEnabled = false;
 bool useUDG = false;
 bool useWRX = true;

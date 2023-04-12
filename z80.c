@@ -496,7 +496,8 @@ void mainloop()
           case 1: /* undocumented */
           case 2: /* IM 1 */
             /* there is little to distinguish between these cases */
-            tstates+=8;
+            tstates+=8; /* perhaps */
+            push2(pc);
             pc=0x38;
           break;
           case 3: /* IM 2 */

@@ -686,7 +686,8 @@ HLinstr(0x75,7,8);
 endinstr;
 
 instr(0x76,4);
-pc--;		/* keep nopping until int */
+   z80halted=1;
+   pc--;		/* keep nopping until int */
 endinstr;
 
 HLinstr(0x77,7,8);

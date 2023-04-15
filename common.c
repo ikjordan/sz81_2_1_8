@@ -714,7 +714,7 @@ else
 return(0);
 }
 
-
+#if 0
 unsigned int in(int h,int l)
 {
 int ts=0;		/* additional cycles*256 */
@@ -850,7 +850,7 @@ switch(l)
 
 return(ts);
 }
-
+#endif
 
 #ifndef SZ81	/* Added by Thunor */
 /* the ZX81 char is used to index into this, to give the ascii.

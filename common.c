@@ -770,7 +770,8 @@ unsigned int out(int h,int l,int a)
  * experimentation strongly suggests not only that out to
  * ff takes one extra, but that *all* outs do.
  */
-int ts=1;	/* additional cycles */
+//int ts=1;	/* additional cycles */
+int ts=0;	/* additional cycles */
 
 if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
   {

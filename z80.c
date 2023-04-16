@@ -48,7 +48,7 @@ unsigned char partable[256]={
    };
 
 
-unsigned long tstates=0,tsmax=65000,frames=0;
+unsigned long tstates=0,tsmax=64998,frames=0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
 unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8]; /* written */
@@ -126,7 +126,7 @@ unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
 unsigned short pc;
 unsigned short ix, iy, sp;
 unsigned char radjust;
-unsigned long nextlinetime=0,linegap=208,lastvsyncpend=0;
+unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 unsigned char ixoriy, new_ixoriy;
 unsigned char intsample=0;
 unsigned char op;
@@ -140,7 +140,7 @@ int maxx = 0;
 #ifdef SZ81	/* Added by Thunor */
 void mainloop()
 {
-  nextlinetime=0; linegap=208; lastvsyncpend=0;
+  nextlinetime=0; linegap=207; lastvsyncpend=0;
   intsample=0;
   ulacharline=0;
   nmipend=0; intpend=0; vsyncpend=0; vsynclen=0;
@@ -390,7 +390,7 @@ void mainloop()
   /*        printf("hsync %d\n",tstates);*/
           ulacharline++;
           ulacharline&=7;
-          tstates++;
+          //tstates++;
         }
       }
       else
@@ -439,7 +439,7 @@ void mainloop()
           * to be just about right. :-)
           */
           tstates+=26;
-          if (!(frames&0x7))
+          if (!(frames&0xf))
               tstates--;
         }
         push2(pc);

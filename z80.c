@@ -26,6 +26,16 @@
 #include "sdl.h"
 #endif
 
+#define DEBUG_PRINT
+#ifdef DEBUG_PRINT
+static int lastRasterY = -1;
+static int print_debug = 0;
+static int dump_debug = 0;
+static int clear_debug = 0;
+static int debug_tracking = 0;
+static unsigned char debug_op = 0;
+#endif
+
 #define parity(a) (partable[a])
 
 unsigned char partable[256]={
@@ -243,7 +253,9 @@ void mainloop()
     new_ixoriy=0;
     intsample=1;
     op=fetch(pc&0x7fff);
-
+#ifdef DEBUG_PRINT
+    debug_op = op;
+#endif
     if (pc&0x8000 && !(op&64) && linestate==0)
     {
       nrmvideo = i<0x20 || radjust==0xdf;
@@ -251,8 +263,26 @@ void mainloop()
       linex = 200 - (nextlinetime - tstates);
       linex = linex>0 ? linex : 0;
 
-      if (liney<ZX_VID_MARGIN) liney=ZX_VID_MARGIN;
+      if (liney<ZX_VID_MARGIN)
+        liney=ZX_VID_MARGIN;
     }
+
+#ifdef DEBUG_PRINT
+    if (liney==ZX_VID_MARGIN)
+    {
+      if (dump_debug)
+      {
+        print_debug = 1;
+        lastRasterY = -1;
+        dump_debug = 0;
+      }
+      else if (clear_debug ==1 )
+      {
+        clear_debug = 0;
+        print_debug = 0;
+      }
+    }
+#endif
 
     if (!nrmvideo) ulacharline = 0;
 
@@ -276,15 +306,28 @@ void mainloop()
         int b = (linex&0x3)<<1;
         unsigned char c = (op&128)?~v:v;
 
-        if (b)
+        if (c)
         {
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(c>>b);
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(c<<(8-b));
+          if (b)
+          {
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(c>>b);
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(c<<(8-b));
+          }
+          else
+          {
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=c;
+          }
+#ifdef DEBUG_PRINT
+          if (print_debug && lastRasterY < liney)
+          {
+            printf("Y = %i, x=%i, ts = %li, remaining %li\n",
+                  liney, linex, tstates, tstates-linestart);
+            lastRasterY = liney;
+            if (liney > ZX_VID_MARGIN)
+              clear_debug = 1;
+          }
         }
-        else
-        {
-          scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=c;
-        }
+#endif
       }
       op=0;	/* the CPU sees a nop */
     }
@@ -299,7 +342,12 @@ void mainloop()
     }
     tinc = tstates - tinc;
     linex += tinc;
-
+#ifdef DEBUG_PRINT
+    if (debug_tracking)
+    {
+      printf("op %02x org op %02x ts %02i pc %04x linex %3i\n", op, debug_op, tinc, pc, linex);
+    }
+#endif
     if(tstates>=tsmax)
     {
       tstates-=tsmax;
@@ -384,6 +432,12 @@ void mainloop()
       {
         liney++;
         linestate = 0;
+#ifdef DEBUG_PRINT
+        if (print_debug && liney == 200)
+          debug_tracking = 1;
+        else if (print_debug && liney == 203)
+          debug_tracking = 0;
+#endif
 
         if(hsyncgen && !hsyncskip)
         {

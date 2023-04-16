@@ -26,7 +26,7 @@
  */
 
 /* full internal image with overscan (but not hsync/vsync areas) */
-#define ZX_VID_MARGIN		55
+#define ZX_VID_MARGIN		23
 #define ZX_VID_HMARGIN		(8*8)
 //#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
 //#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
@@ -61,7 +61,7 @@
 #define ZX_VID_VGA_HEIGHT	(192+4*2)
 #else
 #define ZX_VID_VGA_XOFS		8
-#define ZX_VID_VGA_YOFS		56
+#define ZX_VID_VGA_YOFS		23
 #define ZX_VID_VGA_WIDTH	320
 #define ZX_VID_VGA_HEIGHT	240
 #endif

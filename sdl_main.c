@@ -165,6 +165,8 @@ void check_events(void) {
 	extern "C"
 #endif
 
+void zx81_initialise(void);
+
 int main(int argc, char *argv[]) {
 	int retval = 0;
 
@@ -222,6 +224,8 @@ int main(int argc, char *argv[]) {
 
 					/* Initialise the printer file */
 					sdl_zxprinter_init();
+
+					zx81_initialise();
 
 					/* Initialise the required ROM and RAM */
 					initmem();

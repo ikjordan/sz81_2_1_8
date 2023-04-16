@@ -68,6 +68,9 @@ int int_pending, nmi_pending, hsync_pending;
 unsigned long tstates=0;
 unsigned long tsmax=0;
 unsigned long frames=0;
+unsigned long tperscanline;
+unsigned long scanlines;
+unsigned long tperframe;
 
 int NMI_generator;
 int VSYNC_state, HSYNC_state, SYNC_signal;
@@ -627,7 +630,7 @@ BYTE zx81_opcode_fetch_org(int Address)
 	int opcode, bit6, update=0;
 	BYTE data;
 
-	if (Address<32768)
+	if (Address<0x8000)
 	{
 		// This is not video related, so just return the opcode
 		data = fetch(Address);
@@ -925,23 +928,25 @@ int zx81_do_scanlines(int tstotal)
 		}
 
 		LastInstruction = LASTINSTNONE;
-		if (!nmi_pending && !int_pending)
+//		if (!nmi_pending && !int_pending)
+	  if (!ts)
 		{
-			//z80.pc.w = PatchTest(z80.pc.w);
+			//pc = PatchTest(pc);
+      int save_ts = tstates;
+
       pc++;
       radjust++;
-
-      int save_ts = tstates;
       switch(op)
       {
 #include "z80ops.c"
       }
       ts = tstates - save_ts;
+      tstates = save_ts;
 			//ts = z80_do_opcode();
 		}
 		nmi_pending = int_pending = 0;
 
-		//tstates += ts;
+		tstates += ts;
 
 		/* check iff1 even though it is checked in z80_interrupt() */
 		if (!((r-1) & 64) && iff1)
@@ -1026,9 +1031,9 @@ int zx81_do_scanlines(int tstotal)
 			hsync_counter+=tstate_inc;
 			RasterX += (tstate_inc<<1);
 
-			if (hsync_counter >= 207)
+			if (hsync_counter >= tperscanline)
 			{
-				hsync_counter -= 207;
+				hsync_counter -= tperscanline;
 				if (zx80) hsync_pending = 1;
 			}
 
@@ -1069,9 +1074,9 @@ int zx81_do_scanlines(int tstotal)
 			if (hsync_pending==2 && hsync_counter>=HSYNC_END)
 			{
 				if (VSYNC_state==2)
-					VSYNC_state = 0;
-				HSYNC_state = 0;
-				hsync_pending = 0;
+          VSYNC_state = 0;
+        HSYNC_state = 0;
+        hsync_pending = 0;
 			}
 
 			// NOR the vertical and horizontal SYNC states to create the SYNC signal
@@ -1127,6 +1132,13 @@ void zx81_initialise(void)
 
 /* Configuration variables used in EightyOne code */
 
+	tperscanline = 207;
+	scanlines    = 310; /* PokeMon */
+
+	if (zx80)
+		tperframe    = tperscanline * scanlines - 3;
+	else
+		tperframe    = tperscanline * scanlines - 7;
 
 	tsmax = 65000; //machine.tperframe;
 
@@ -1167,7 +1179,7 @@ void mainloop()
 
 	while (1)
 	{
-		zx81_do_scanlines(64153);
+		zx81_do_scanlines(tperframe);
 
 		/* this isn't used for any sort of Z80 interrupts,
 		* purely for the emulator's UI.
@@ -1199,7 +1211,6 @@ void mainloop()
 /* Process a z80 maskable interrupt */
 int z80_interrupt( int ts )
 {
-  int_pending = 0;
   /* Process if IFF1 set */
   if(iff1)
   {
@@ -1229,7 +1240,7 @@ int z80_interrupt( int ts )
         //PCL = readbyte(inttemp++); PCH = readbyte(inttemp);
         return(19);
       }
-      default: 
+      default:
         return(12);
     }
   }

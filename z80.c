@@ -298,7 +298,7 @@ void mainloop1()
 #endif
 #endif
     /* this *has* to be checked before radjust is incr'd */
-    if(intsample && !(radjust&64))
+    if(intsample && !(radjust&64) && iff1)
       intpend=1;
 
     ixoriy=new_ixoriy;
@@ -906,7 +906,7 @@ int zx81_do_scanlines(int tstotal)
 
 		ts = 0;
 
-    if(intsample && !(radjust&64))
+    if(intsample && !(radjust&64) && iff1)
       int_pending=1;
 
     ixoriy=new_ixoriy;
@@ -928,8 +928,7 @@ int zx81_do_scanlines(int tstotal)
 		}
 
 		LastInstruction = LASTINSTNONE;
-//		if (!nmi_pending && !int_pending)
-	  if (!ts)
+    if (!nmi_pending && !int_pending)
 		{
 			//pc = PatchTest(pc);
       int save_ts = tstates;

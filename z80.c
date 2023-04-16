@@ -253,18 +253,6 @@ void mainloop()
 
       if (liney<ZX_VID_MARGIN) liney=ZX_VID_MARGIN;
     }
-    else if (linestate>=1)
-    {
-      if (op&64)
-      {
-        linestate = 0;
-        linex = ZX_VID_FULLWIDTH/2;
-      } else
-      {
-        linestate++;
-        linex+=4;
-      }
-    }
 
     if (!nrmvideo) ulacharline = 0;
 
@@ -304,10 +292,13 @@ void mainloop()
     pc++;
     radjust++;
 
+    int tinc = tstates;
     switch(op)
     {
 #include "z80ops.c"
     }
+    tinc = tstates - tinc;
+    linex += tinc;
 
     if(tstates>=tsmax)
     {
@@ -344,7 +335,7 @@ void mainloop()
           /* FAST mode screws up without this, but it's a bit
           * unpleasant... :-/
           */
-          tstates=nextlinetime - 7; // Galaxians
+          tstates=nextlinetime;
         }
       }
       else
@@ -392,6 +383,7 @@ void mainloop()
       if(!vsyncpend)
       {
         liney++;
+        linestate = 0;
 
         if(hsyncgen && !hsyncskip)
         {

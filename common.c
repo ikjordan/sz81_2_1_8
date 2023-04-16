@@ -55,7 +55,7 @@ int help=0;
 int sound=0;
 int sound_vsync=0,sound_ay=0,sound_ay_type=AY_TYPE_NONE;
 int load_hook=1,save_hook=1;
-int vsync_visuals=0;
+int vsync_visuals=1;
 int invert_screen=0;
 
 #ifdef SZ81	/* Added by Thunor */
@@ -766,12 +766,7 @@ return(ts|255);
 
 unsigned int out(int h,int l,int a)
 {
-/* either in from fe or out to ff takes one extra cycle;
- * experimentation strongly suggests not only that out to
- * ff takes one extra, but that *all* outs do.
- */
-//int ts=1;	/* additional cycles */
-int ts=0;	/* additional cycles */
+int ts=0;	/* NO additional cycles */
 
 if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
   {

@@ -82,9 +82,6 @@ int ay_reg=0;
 
 static int linestate=0, linex=0, nrmvideo=1;
 
-#define LINEX 	((tstates-linestart)>>2)
-
-
 /* for vsync off -> on */
 void vsync_raise(void)
 {
@@ -444,7 +441,6 @@ void mainloop()
   /*        printf("hsync %d\n",tstates);*/
           ulacharline++;
           ulacharline&=7;
-          //tstates++;
         }
       }
       else
@@ -493,7 +489,7 @@ void mainloop()
           * to be just about right. :-)
           */
           tstates+=26;
-          if (!(frames&0xf))
+          if ((frames&0x1) && ((frames&0xf) != 0xf))
               tstates--;
         }
         push2(pc);

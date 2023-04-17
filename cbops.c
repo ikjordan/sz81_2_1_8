@@ -138,7 +138,7 @@
       case 0x83: res(n,e); break;
       case 0x84: res(n,h); break;
       case 0x85: res(n,l); break;
-      case 0x86: tstates+=4;val=fetch(addr);res(n,val);store(addr,val);break;
+      case 0x86: tstates+=7;val=fetch(addr);res(n,val);store(addr,val);break;
       case 0x87: res(n,a); break;
       case 0xc0: set(n,b); break;
       case 0xc1: set(n,c); break;
@@ -146,7 +146,7 @@
       case 0xc3: set(n,e); break;
       case 0xc4: set(n,h); break;
       case 0xc5: set(n,l); break;
-      case 0xc6: tstates+=4;val=fetch(addr);set(n,val);store(addr,val);break;
+      case 0xc6: tstates+=7;val=fetch(addr);set(n,val);store(addr,val);break;
       case 0xc7: set(n,a); break;
       }
    }

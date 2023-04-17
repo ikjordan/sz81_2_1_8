@@ -24,17 +24,20 @@
  *
  * NB: *everything* horizontal here must be exactly divisible by 8.
  */
-
+#include <stdbool.h>
 /* full internal image with overscan (but not hsync/vsync areas) */
-#define ZX_VID_MARGIN		55
+#define ZX_VID_MARGIN		23
 #define ZX_VID_HMARGIN		(8*8)
-#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
-#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
+//#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
+//#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
+#define ZX_VID_FULLWIDTH	400
+#define ZX_VID_FULLHEIGHT	300
 
 /* ahem :-) */
 #define FUDGE_FACTOR		(3*8)
 
 /* X image */
+#if 0
 #if 0
 /* for testing QS Defender ;-) - I might want to add a
  * command-line option to show the whole overscan area
@@ -50,13 +53,20 @@
 #define ZX_VID_X_WIDTH		((32+3*2)*8)
 #define ZX_VID_X_HEIGHT		(192+20*2)
 #endif
+#endif
 
 /* svgalib image */
+#if 0
 #define ZX_VID_VGA_XOFS		(4*8-FUDGE_FACTOR)
 #define ZX_VID_VGA_YOFS		51
 #define ZX_VID_VGA_WIDTH	((32+4*2)*8)
 #define ZX_VID_VGA_HEIGHT	(192+4*2)
-
+#else
+#define ZX_VID_VGA_XOFS		8
+#define ZX_VID_VGA_YOFS		23
+#define ZX_VID_VGA_WIDTH	320
+#define ZX_VID_VGA_HEIGHT	240
+#endif
 
 /* AY board types */
 #define AY_TYPE_NONE		0
@@ -66,6 +76,7 @@
 
 extern unsigned char mem[];
 extern unsigned char *memptr[64];
+extern unsigned char font[1024];
 extern int memattr[64];
 extern unsigned char keyports[9];
 extern unsigned long tstates,tsmax;
@@ -82,6 +93,13 @@ extern int fakedispx,fakedispy;
 extern int refresh_screen;
 extern int zx80;
 extern int ignore_esc;
+
+/* Test variables */
+extern bool m1not;
+extern bool useWRX;
+extern bool useQSUDG;
+extern bool UDGEnabled;
+extern bool LowRAM;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);

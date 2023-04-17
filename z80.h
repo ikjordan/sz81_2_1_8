@@ -36,8 +36,9 @@ extern void mainloop();
 extern void z80_reset(void);
 #endif
 
-#define fetch(x) (memptr[(unsigned short)(x)>>10][(x)&1023])
+#define fetch(x) (memptr[(unsigned short)(x)>>10][(x)&0x3FF])
 #define fetch2(x) ((fetch((x)+1)<<8)|fetch(x))
+#define fetchm(x) (pc<0xC000 ? fetch(pc) : fetch(pc&0x7fff))
 
 /* due to timing constraints, we presume that only one-byte stores
  * are used by programs for memory-mapped AY addons.
@@ -61,18 +62,27 @@ extern void z80_reset(void);
 #define AY_STORE_CHECK(x,y)  /* nothing */
 #endif
 
+#define QSUDG_STORE_CHECK(x,y) \
+         if(useQSUDG) {\
+            if (x>=0x8400 && x<0x8800){\
+               font[x-0x8400] = y;\
+               UDGEnabled = true;\
+            }\
+         }\
+
 #define store(x,y) do {\
-          unsigned short off=(x)&1023;\
+          unsigned short off=(x)&0x3FF;\
           unsigned char page=(unsigned short)(x)>>10;\
           int attr=memattr[page];\
           AY_STORE_CHECK(x,y) \
+          QSUDG_STORE_CHECK(x,y) \
           if(attr){\
              memptr[page][off]=(y);\
              }\
            } while(0)
 
 #define store2b(x,hi,lo) do {\
-          unsigned short off=(x)&1023;\
+          unsigned short off=(x)&0x3FF;\
           unsigned char page=(unsigned short)(x)>>10;\
           int attr=memattr[page];\
           if(attr) { \
@@ -81,7 +91,7 @@ extern void z80_reset(void);
              }\
           } while(0)
 
-#define store2(x,y) store2b(x,(y)>>8,(y)&255)
+#define store2(x,y) store2b(x,(y)>>8,(y)&0xFF)
 
 #ifdef __GNUC__
 static void inline storefunc(unsigned short ad,unsigned char b){
@@ -100,3 +110,4 @@ static void inline store2func(unsigned short ad,unsigned char b1,unsigned char b
 #define bc ((b<<8)|c)
 #define de ((d<<8)|e)
 #define hl ((h<<8)|l)
+

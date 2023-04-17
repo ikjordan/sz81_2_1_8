@@ -21,7 +21,7 @@
 /* Defines */
 
 /* Variables */
-unsigned char vga_graphmemory[64 * 1024];
+unsigned char vga_graphmemory[800 * 600];
 
 /* \x1 means that a value needs to be placed here.
  * \x2 means to invert the colours.
@@ -207,7 +207,7 @@ int sdl_video_setmode(void) {
 	} else {
 		sdl_emulator.xoffset = (video.xres - 320 * video.scale) / 2;
 	}
-	sdl_emulator.yoffset = (video.yres - 200 * video.scale) / 2;
+	sdl_emulator.yoffset = (video.yres - 240 * video.scale) / 2;
 
 	#ifdef SDL_DEBUG_VIDEO
 		printf("%s: sdl_emulator.xoffset=%i sdl_emulator.yoffset=%i\n", 
@@ -352,7 +352,7 @@ void sdl_video_update(void) {
 		/* Set-up destination y coordinates */
 		desy = sdl_emulator.yoffset;
 
-		for (srcy = 0; srcy < 200; srcy++) {
+		for (srcy = 0; srcy < 240; srcy++) {
 
 			/* [Re]set-up x coordinates and src width */
 			if (video.xres < 320 * video.scale) {

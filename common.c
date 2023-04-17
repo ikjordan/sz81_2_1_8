@@ -49,14 +49,22 @@ unsigned char keyports[9]={0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff};
 
 /* this two work on a per-k basis, so we can support 1k etc. properly */
 unsigned char *memptr[64];
+unsigned char font[1024];
 int memattr[64];
 
 int help=0;
 int sound=0;
 int sound_vsync=0,sound_ay=0,sound_ay_type=AY_TYPE_NONE;
 int load_hook=1,save_hook=1;
-int vsync_visuals=0;
+int vsync_visuals=1;
 int invert_screen=0;
+
+/* Test variables */
+bool m1not = false;
+bool useWRX = false;
+bool UDGEnabled = false;
+bool useQSUDG = false;
+bool LowRAM = true;
 
 #ifdef SZ81	/* Added by Thunor */
 int signal_int_flag=0;
@@ -82,7 +90,7 @@ int fakedispx=0,fakedispy=0;	/* set by main.c/xmain.c */
  * of an open file, so they need to be initialised here from the outset.
  * zxpopen is now called from within zxpout (for sz81) and therefore
  * printer_inout gets called first.
- * 
+ *
  * I don't know why static is being used here as it is protecting the
  * variables from being modified from outside this file, but they're
  * not being accessed from outside this file anyway. I think this code
@@ -337,6 +345,12 @@ for(f=0;f<16;f++)
 /* RAM setup */
 #ifdef SZ81	/* Added by Thunor */
 ramsize=sdl_emulator.ramsize;
+if (ramsize > 48)
+{
+  ramsize = 48;
+  LowRAM = true;
+}
+useWRX = useWRX || (ramsize < 3);
 #else
 ramsize=16;
 if(unexpanded)
@@ -396,12 +410,6 @@ for(f=16;f<32;f++)
 
 switch(ramsize)
   {
-  case 56:
-    for(f=8;f<16;f++)
-      {
-      memattr[f]=1;					/* It's now writable */
-      memptr[f]=mem+1024*f;
-      }
   case 48:
     for(f=48;f<64;f++)
       {
@@ -416,6 +424,16 @@ switch(ramsize)
       }
     break;
   }
+
+  if (LowRAM)
+  {
+      for(f=8;f<16;f++)
+      {
+        memattr[f]=1;         /* It's now writable */
+        memptr[f]=mem+1024*f;
+      }
+  }
+
 #endif
 
 if(zx80)
@@ -766,11 +784,7 @@ return(ts|255);
 
 unsigned int out(int h,int l,int a)
 {
-/* either in from fe or out to ff takes one extra cycle;
- * experimentation strongly suggests not only that out to
- * ff takes one extra, but that *all* outs do.
- */
-int ts=1;	/* additional cycles */
+int ts=0;	/* NO additional cycles */
 
 if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
   {

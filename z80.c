@@ -34,6 +34,10 @@ static int dump_debug = 0;
 static int clear_debug = 0;
 static int debug_tracking = 0;
 static unsigned char debug_op = 0;
+static unsigned char debug_v;
+static unsigned char debug_i = 0;
+static unsigned char debug_r = 0;
+static unsigned char debug_radjust = 0;
 #endif
 
 #define parity(a) (partable[a])
@@ -154,6 +158,7 @@ void mainloop()
   hsyncskip=0;
   framewait=0;
 #endif
+  bool videodata;
 
   a=f=b=c=d=e=h=l=a1=f1=b1=c1=d1=e1=h1=l1=i=iff1=iff2=im=r=0;
   ixoriy=new_ixoriy=0;
@@ -249,13 +254,22 @@ void mainloop()
     ixoriy=new_ixoriy;
     new_ixoriy=0;
     intsample=1;
-    op=fetch(pc&0x7fff);
+
+    op = fetchm(pc);
 #ifdef DEBUG_PRINT
     debug_op = op;
 #endif
-    if (pc&0x8000 && !(op&64) && linestate==0)
+
+    if (m1not && pc<0xC000)
     {
-      nrmvideo = i<0x20 || radjust==0xdf;
+      videodata = false;
+    } else {
+      videodata = (pc&0x8000) ? true: false;
+    }
+
+    if (videodata && (!(op&64) && linestate==0))
+    {
+      nrmvideo = (i<0x20) || (i<0x40 && LowRAM && (!useWRX));
       linestate = 1;
       linex = 200 - (nextlinetime - tstates);
       linex = linex>0 ? linex : 0;
@@ -283,36 +297,58 @@ void mainloop()
 
     if (!nrmvideo) ulacharline = 0;
 
-    if((pc&0x8000) && !(op&64))
+    if(videodata && !(op&64))
     {
 /*    printf("ULA %3d,%3d = %02X\n",x,y,op);*/
       if(liney>=0 && liney<ZX_VID_FULLHEIGHT &&
         linex>=0 && linex<(ZX_VID_FULLWIDTH>>1))
       {
-        int v;
+        unsigned char v=255;
+
+        maxx = (maxx>linex) ? maxx : linex;
+        minx = (minx<linex) ? minx : linex;
 
         if (nrmvideo)
-          v=mem[((i&0xfe)<<8)|((op&63)<<3)|ulacharline];
-        else
-          v=mem[(i<<8)|(r&0x80)|(radjust&0x7f)];
-
-        minx = (minx < linex) ? minx : linex;
-        maxx = (maxx > linex) ? maxx : linex;
-
-        int p = linex>>2;
-        int b = (linex&0x3)<<1;
-        unsigned char c = (op&128)?~v:v;
-
-        if (c)
         {
-          if (b)
+          int addr = ((i&0xfe)<<8)|((op&63)<<3)|ulacharline;
+          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
           {
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(c>>b);
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(c<<(8-b));
+            v = font[addr-((op&128)?0x1C00:0x1E00)];
           }
           else
           {
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=c;
+            v = mem[addr];
+          }
+        }
+        else
+        {
+          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
+          if (useWRX)
+          {
+            v = mem[addr];
+          }
+        }
+
+        int p = linex>>2;
+        int b = (linex&0x3)<<1;
+        v = (op&128)?~v:v;
+
+#ifdef DEBUG_PRINT
+        debug_v = v;
+        debug_i = i;
+        debug_r = r;
+        debug_radjust = radjust;
+#endif
+        if (v)
+        {
+          if (b)
+          {
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(v>>b);
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(v<<(8-b));
+          }
+          else
+          {
+            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=v;
           }
 #ifdef DEBUG_PRINT
           if (print_debug && lastRasterY < liney)
@@ -328,7 +364,15 @@ void mainloop()
       }
       op=0;	/* the CPU sees a nop */
     }
-
+#ifdef DEBUG_PRINT
+    else
+    {
+      debug_v = 0;
+      debug_i = i;
+      debug_r = r;
+      debug_radjust = radjust;
+    }
+#endif
     pc++;
     radjust++;
 
@@ -342,7 +386,8 @@ void mainloop()
 #ifdef DEBUG_PRINT
     if (debug_tracking)
     {
-      printf("op %02x org op %02x ts %02i pc %04x linex %3i\n", op, debug_op, tinc, pc, linex);
+      printf("op %02x org op %02x ts %02i pc %04x linex %3i disp %02x i %02x r %02x a %02x\n",
+             op, debug_op, tinc, pc, linex, debug_v, debug_i, debug_r, debug_radjust);
     }
 #endif
     if(tstates>=tsmax)
@@ -430,9 +475,9 @@ void mainloop()
         liney++;
         linestate = 0;
 #ifdef DEBUG_PRINT
-        if (print_debug && liney == 200)
+        if (print_debug && liney == 201)
           debug_tracking = 1;
-        else if (print_debug && liney == 203)
+        else if (print_debug && liney == 205)
           debug_tracking = 0;
 #endif
 

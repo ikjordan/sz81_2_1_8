@@ -17,27 +17,13 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <string.h>	/* for memset/memcpy */
+#include <string.h> /* for memset/memcpy */
 #include <stdbool.h>
 #include "common.h"
 #include "sound.h"
 #include "z80.h"
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
 #include "sdl.h"
-#endif
-
-//#define DEBUG_PRINT
-#ifdef DEBUG_PRINT
-static int lastRasterY = -1;
-static int print_debug = 0;
-static int dump_debug = 0;
-static int clear_debug = 0;
-static int debug_tracking = 0;
-static unsigned char debug_op = 0;
-static unsigned char debug_v;
-static unsigned char debug_i = 0;
-static unsigned char debug_r = 0;
-static unsigned char debug_radjust = 0;
 #endif
 
 // New definitions
@@ -65,6 +51,7 @@ const static int VSYNC_MINLEN = VMIN;
 
 const static int HSYNC_START = 16;
 const static int HSYNC_END = 32;
+const static int HLEN = 207;
 
 static int RasterX = 0;
 static int RasterY = 0;
@@ -118,12 +105,12 @@ unsigned char partable[256]={
 unsigned long tstates=0,tsmax=65000,frames=0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
-unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8]; /* written */
-unsigned char scrnbmp[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];	/* displayed */
+unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];  /* written */
+unsigned char scrnbmp[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];      /* displayed */
 unsigned char scrnbmp_old[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];
-						/* checked against for diffs */
+        /* checked against for diffs */
 
-#ifdef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
+#ifdef SZ81 /* Added by Thunor. I need these to be visible to sdl_loadsave.c */
 int vsy=0;
 #else
 static int liney=0, lineyi=0;
@@ -134,13 +121,10 @@ static int vsync_toggle=0,vsync_lasttoggle=0;
 
 int ay_reg=0;
 
-//static int linestate=0, linex=0; 
-//static int nrmvideo=1;
-
 static inline int z80_interrupt(void);
 static inline int nmi_interrupt(void);
 
-#ifndef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
+#ifndef SZ81  /* Added by Thunor. I need these to be visible to sdl_loadsave.c */
 void mainloop()
 {
 #endif
@@ -157,14 +141,10 @@ int framewait=0;
 int minx = ZX_VID_FULLHEIGHT;
 int maxx = 0;
 
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
 void mainloop()
 {
-  //nextlinetime=0; linegap=207; lastvsyncpend=0;
   intsample=0;
-  //ulacharline=0;
-  //nmipend=0; intpend=0; vsyncpend=0; vsynclen=0;
-  //hsyncskip=0;
   framewait=0;
 #endif
   bool videodata;
@@ -173,23 +153,22 @@ void mainloop()
   ixoriy=new_ixoriy=0;
   ix=iy=sp=pc=0;
   tstates=radjust=0;
-  //nextlinetime=linegap;
 
-	RasterX = 0;
-	RasterY = 0;
-	dest = 0;
-	psync = 1;
-	sync_len = 0;
-	TVP = ZX_VID_FULLWIDTH;
+  RasterX = 0;
+  RasterY = 0;
+  dest = 0;
+  psync = 1;
+  sync_len = 0;
+  TVP = ZX_VID_FULLWIDTH;
 
 /* ULA */
 
-	NMI_generator=0;
-	int_pending=0;
-	hsync_pending=0;
-	VSYNC_state=HSYNC_state=0;
+  NMI_generator=0;
+  int_pending=0;
+  hsync_pending=0;
+  VSYNC_state=HSYNC_state=0;
 
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
   if(sdl_emulator.autoload)
   {
     sdl_emulator.autoload=0;
@@ -231,11 +210,10 @@ void mainloop()
   unsigned long ts;
   unsigned long tstore;
   unsigned char v=0;
-  unsigned char radsave;
 
   while(1)
   {
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
 #if 0
     /* Currently this is for development but it would be useful to
       * make it a feature temp temp
@@ -246,15 +224,15 @@ void mainloop()
       if (!zx80)
       {
         printf("ZX81 System Variables\n");
-        printf("mem[0x%04x] = 0x%02x;	/* ERR_NR */\n", 0x4000, mem[0x4000]);
-        printf("mem[0x%04x] = 0x%02x;	/* FLAGS */\n", 0x4001, mem[0x4001]);
-        printf("mem[0x%04x] = 0x%02x;	/* ERR_SP lo */\n", 0x4002, mem[0x4002]);
-        printf("mem[0x%04x] = 0x%02x;	/* ERR_SP hi */\n", 0x4003, mem[0x4003]);
-        printf("mem[0x%04x] = 0x%02x;	/* RAMTOP lo */\n", 0x4004, mem[0x4004]);
-        printf("mem[0x%04x] = 0x%02x;	/* RAMTOP hi */\n", 0x4005, mem[0x4005]);
-        printf("mem[0x%04x] = 0x%02x;	/* MODE */\n", 0x4006, mem[0x4006]);
-        printf("mem[0x%04x] = 0x%02x;	/* PPC lo */\n", 0x4007, mem[0x4007]);
-        printf("mem[0x%04x] = 0x%02x;	/* PPC hi */\n", 0x4008, mem[0x4008]);
+        printf("mem[0x%04x] = 0x%02x; /* ERR_NR */\n", 0x4000, mem[0x4000]);
+        printf("mem[0x%04x] = 0x%02x; /* FLAGS */\n", 0x4001, mem[0x4001]);
+        printf("mem[0x%04x] = 0x%02x; /* ERR_SP lo */\n", 0x4002, mem[0x4002]);
+        printf("mem[0x%04x] = 0x%02x; /* ERR_SP hi */\n", 0x4003, mem[0x4003]);
+        printf("mem[0x%04x] = 0x%02x; /* RAMTOP lo */\n", 0x4004, mem[0x4004]);
+        printf("mem[0x%04x] = 0x%02x; /* RAMTOP hi */\n", 0x4005, mem[0x4005]);
+        printf("mem[0x%04x] = 0x%02x; /* MODE */\n", 0x4006, mem[0x4006]);
+        printf("mem[0x%04x] = 0x%02x; /* PPC lo */\n", 0x4007, mem[0x4007]);
+        printf("mem[0x%04x] = 0x%02x; /* PPC hi */\n", 0x4008, mem[0x4008]);
       }
       printf("Registers\n");
       printf("a = 0x%02x; f = 0x%02x; b = 0x%02x; c = 0x%02x;\n", a, f, b, c);
@@ -277,28 +255,23 @@ void mainloop()
     v=0;
     ts = 0;
     LastInstruction = LASTINSTNONE;
-    //intsample = 1;
-
     /* this *has* to be checked before radjust is incr'd */
-    radsave = radjust;
-    if(intsample && nmi_pending)
+    if(intsample && !(radjust&64) && iff1)
+      int_pending=1;
+
+    if(nmi_pending)
     {
       ts = nmi_interrupt();
     }
-    else if (intsample && int_pending)
+    else if (int_pending)
     {
-      ts += z80_interrupt();
+      ts = z80_interrupt();
       hsync_counter = -2;             /* INT ACK after two tstates */
       hsync_pending = 1;              /* a HSYNC may be started */
     }
-
-    if (!ts)
+    else
     {
       // Get the next op, calculate the next byte to display and execute the op
-      ixoriy=new_ixoriy;
-      new_ixoriy=0;
-      intsample=1;
-
       op = fetchm(pc);
 
       if (m1not && pc<0xC000)
@@ -336,26 +309,37 @@ void mainloop()
           }
           v = (op&128)?~v:v;
         }
-        op=0;	/* the CPU sees a nop */
+        op=0; /* the CPU sees a nop */
       }
 
+      tstore = tstates;
+
+ixiyloop:
       pc++;
       radjust++;
+      intsample=1;
 
-      tstore = tstates;
       switch(op)
       {
 #include "z80ops.c"
       }
+
+      // Complete ix and iy instructions
+      if (new_ixoriy)
+      {
+        ixoriy=new_ixoriy;
+        new_ixoriy=0;
+        op = fetchm(pc);
+        goto ixiyloop;
+      }
+      ixoriy = 0;
+
       ts = tstates - tstore;
       tstates = tstore;
     }
 
     nmi_pending = int_pending = 0;
     tstates += ts;
-
-    if(intsample && !((radsave)&64) && iff1)
-      int_pending=1;
 
     switch(LastInstruction)
     {
@@ -391,11 +375,11 @@ void mainloop()
     /* Plot data in shift register */
     if (SYNC_signal)
     {
-      int k = TVP + dest + RasterX;
+      int k = TVP + dest + RasterX + 2;
 
       if (v &&
           (RasterX < ZX_VID_FULLWIDTH) &&
-        (k < ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT))
+          (k < ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT))
       {
         int kh = k >> 3;
         int kl = k & 7;
@@ -412,79 +396,74 @@ void mainloop()
       }
     }
 
-		const static int tstate_jump = 8; // Step up to 8 tstates at a time
-		int tstate_inc;
-		int states_remaining = ts;
-		int since_hstart = 0;
+    const static int tstate_jump = 8; // Step up to 8 tstates at a time
+    int tstate_inc;
+    int states_remaining = ts;
+    int since_hstart = 0;
     int tswait = 0;
 
-		do
-		{
-			tstate_inc = states_remaining > tstate_jump ? tstate_jump: states_remaining;
-			states_remaining -= tstate_inc;
-
-			hsync_counter+=tstate_inc;
-			RasterX += (tstate_inc<<1);
-
-			if (hsync_counter >= 207)
-			{
-				hsync_counter -= 207;
-				if (!zx80) hsync_pending = 1;
-			}
-
-			// Start of HSYNC, and NMI if enabled
-			if (hsync_pending==1 && hsync_counter>=HSYNC_START)
-			{
-				if (NMI_generator)
-				{
-					nmi_pending = 1;
-					if (ts==4)
-					{
-						tswait = 14 + (3-states_remaining - (hsync_counter - HSYNC_START));
-					}
-					else
-					{
-						tswait = 14;
-					}
-					states_remaining += tswait;
-					ts += tswait;
-					tstates += tswait;
-				}
-
-				HSYNC_state = 1;
-				since_hstart = hsync_counter - HSYNC_START + 1;
-
-				if (VSYNC_state)
-				{
-					rowcounter = 0;
-				} else
-				{
-					rowcounter++;
-					rowcounter &= 7;
-				}
-				hsync_pending = 2;
-			}
-
-			// end of HSYNC
-			if (hsync_pending==2 && hsync_counter>=HSYNC_END)
-			{
-				if (VSYNC_state==2)
-					VSYNC_state = 0;
-				HSYNC_state = 0;
-				hsync_pending = 0;
-			}
-
-			// NOR the vertical and horizontal SYNC states to create the SYNC signal
-			SYNC_signal = (VSYNC_state || HSYNC_state) ? 0 : 1;
-			checksync(since_hstart ? since_hstart : tstate_jump);
-			since_hstart = 0;
-		}
-		while (states_remaining);
-
-		if (frames == 30 && tstates > 30500)
+    do
     {
-			int c=frames;
+      tstate_inc = states_remaining > tstate_jump ? tstate_jump: states_remaining;
+      states_remaining -= tstate_inc;
+
+      hsync_counter+=tstate_inc;
+      RasterX += (tstate_inc<<1);
+
+      if (hsync_counter >= HLEN)
+      {
+        hsync_counter -= HLEN;
+        if (!zx80) hsync_pending = 1;
+      }
+
+      // Start of HSYNC, and NMI if enabled
+      if (hsync_pending==1 && hsync_counter>=HSYNC_START)
+      {
+        if (NMI_generator)
+        {
+          nmi_pending = 1;
+          if (ts==4)
+          {
+            tswait = 14 + (3-states_remaining - (hsync_counter - HSYNC_START));
+          }
+          else
+          {
+            tswait = 14;
+          }
+          states_remaining += tswait;
+          ts += tswait;
+          tstates += tswait;
+        }
+
+        HSYNC_state = 1;
+        since_hstart = hsync_counter - HSYNC_START + 1;
+
+        if (VSYNC_state)
+        {
+          rowcounter = 0;
+        } else
+        {
+          rowcounter++;
+          rowcounter &= 7;
+        }
+        hsync_pending = 2;
+      }
+
+      // end of HSYNC
+      if (hsync_pending==2 && hsync_counter>=HSYNC_END)
+      {
+        if (VSYNC_state==2)
+          VSYNC_state = 0;
+        HSYNC_state = 0;
+        hsync_pending = 0;
+      }
+
+      // NOR the vertical and horizontal SYNC states to create the SYNC signal
+      SYNC_signal = (VSYNC_state || HSYNC_state) ? 0 : 1;
+      checksync(since_hstart ? since_hstart : tstate_jump);
+      since_hstart = 0;
     }
+    while (states_remaining);
 
     if(tstates>=tsmax)
     {
@@ -492,11 +471,6 @@ void mainloop()
 
       frames++;
       frame_pause();
-      if (frames==32)
-			{
-				int c=frames;
-			}
-
     }
 
     /* this isn't used for any sort of Z80 interrupts,
@@ -506,9 +480,9 @@ void mainloop()
     {
       if(interrupted==1)
       {
-        do_interrupt();	/* also zeroes it */
+        do_interrupt(); /* also zeroes it */
       }
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
         /* I've added these new interrupt types to support a thorough
         * emulator reset and to do a proper exit i.e. back to main */
       else if(interrupted==INTERRUPT_EMULATOR_RESET ||
@@ -517,7 +491,7 @@ void mainloop()
         return;
       }
 #endif
-      else	/* must be 2 */
+      else  /* must be 2 */
       {
         /* a kludge to let us do a reset */
         interrupted=0;
@@ -525,9 +499,19 @@ void mainloop()
         ixoriy=new_ixoriy=0;
         ix=iy=sp=pc=0;
         tstates=radjust=0;
-        //nextlinetime=linegap;
-        //vsyncpend=vsynclen=0;
-        //hsyncskip=0;
+        RasterX = 0;
+        RasterY = 0;
+        dest = 0;
+        psync = 1;
+        sync_len = 0;
+        TVP = ZX_VID_FULLWIDTH;
+
+/* ULA */
+
+        NMI_generator=0;
+        int_pending=0;
+        hsync_pending=0;
+        VSYNC_state=HSYNC_state=0;
       }
     }
 #ifdef  SZ81
@@ -535,17 +519,13 @@ void mainloop()
 #endif
 }
 
-#ifdef SZ81	/* Added by Thunor */
+#ifdef SZ81 /* Added by Thunor */
 void z80_reset(void)
 {
   /* Reinitialise variables at the top of z80.c */
   tstates=0;
   frames=0;
-  //liney=0;
   vsy=0;
-  //linestart=0;
-  //vsync_toggle=0;
-  //vsync_lasttoggle=0;
   ay_reg=0;
 }
 #endif
@@ -553,19 +533,15 @@ void z80_reset(void)
 static inline int z80_interrupt(void)
 {
   int tinc=0;
-//  intpend=0;
 
   if(iff1)
   {
-    if(fetch(pc&0x7fff)==0x76)
+    if(fetchm(pc)==0x76)
     {
       pc++;
     }
     iff1=iff2=0;
     push2(pc);
-
-    // inc r????
-    //r++;
     radjust++;
 
     switch(im)
@@ -593,22 +569,13 @@ static inline int z80_interrupt(void)
 
 static inline int nmi_interrupt(void)
 {
-//  nmipend=0;
-
-  //iff2=iff1;
   iff1=0;
-  /* hardware syncs tstates to falling of NMI pulse (?),
-  * so a slight kludge here...
-  */
-  if(fetch(pc&0x7fff)==0x76)
+  if(fetchm(pc)==0x76)
   {
     pc++;
   }
-  push2(pc);  
-  // Increment r?
+  push2(pc);
   radjust++;
-
-  //r++;
   pc=0x66;
 
   return 11;
@@ -617,62 +584,55 @@ static inline int nmi_interrupt(void)
 /* Normally, these sync checks are done by the TV :-) */
 void checkhsync(int tolchk)
 {
-	if ( ( !tolchk && sync_len >= HSYNC_MINLEN && sync_len <= HSYNC_MAXLEN && RasterX>=HSYNC_TOLERANCEMIN ) ||
-	     (  tolchk &&                                                         RasterX>=HSYNC_TOLERANCEMAX ) )
-	{
-		RasterX = (hsync_counter - HSYNC_END) << 1;
-		RasterY++;
-#ifdef DEBUG_PRINT        
-        if (print_debug && RasterY == 203)
-          debug_tracking = 1;
-        else if (print_debug && RasterY == 206)
-          debug_tracking = 0;
-#endif
-				
-		dest += TVP;
-	}
+  if ( ( !tolchk && sync_len >= HSYNC_MINLEN && sync_len <= HSYNC_MAXLEN && RasterX>=HSYNC_TOLERANCEMIN ) ||
+        (  tolchk &&                                                         RasterX>=HSYNC_TOLERANCEMAX ) )
+  {
+    RasterX = (hsync_counter - HSYNC_END) << 1;
+    RasterY++;
+    dest += TVP;
+  }
 }
 
 void checkvsync(int tolchk)
 {
-	if ( ( !tolchk && sync_len >= VSYNC_MINLEN && RasterY>=VSYNC_TOLERANCEMIN ) ||
-	     (  tolchk &&                             RasterY>=VSYNC_TOLERANCEMAX ) )
-	{
-		RasterY = 0;
-		dest = 0;
+  if ( ( !tolchk && sync_len >= VSYNC_MINLEN && RasterY>=VSYNC_TOLERANCEMIN ) ||
+        (  tolchk &&                             RasterY>=VSYNC_TOLERANCEMAX ) )
+  {
+    RasterY = 0;
+    dest = 0;
 
-		if (sync_len>tsmax)
-		{
-			// If there has been no sync for an entire frame then blank the screen
-			memset(scrnbmp, 0xff, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
-			sync_len = 0;
-		}
-		else
-		{
-			memcpy(scrnbmp,scrnbmp_new,sizeof(scrnbmp));
-		}
-		memset(scrnbmp_new, 0x00, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
-	}
+    if (sync_len>tsmax)
+    {
+      // If there has been no sync for an entire frame then blank the screen
+      memset(scrnbmp, 0xff, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+      sync_len = 0;
+    }
+    else
+    {
+      memcpy(scrnbmp,scrnbmp_new,sizeof(scrnbmp));
+    }
+    memset(scrnbmp_new, 0x00, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+  }
 }
 
 void checksync(int inc)
 {
-	if (!SYNC_signal)
-	{
-		if (psync==1)
-			sync_len = 0;
-		sync_len += inc;
-		checkhsync(1);
-		checkvsync(1);
-	} else
-	{
-		if (!psync)
-		{
-			checkhsync(0);
-			checkvsync(0);
-		}
-	}
-	psync = SYNC_signal;
+  if (!SYNC_signal)
+  {
+    if (psync==1)
+      sync_len = 0;
+    sync_len += inc;
+    checkhsync(1);
+    checkvsync(1);
+  } else
+  {
+    if (!psync)
+    {
+      checkhsync(0);
+      checkvsync(0);
+    }
+  }
+  psync = SYNC_signal;
 }
 
 /* The rowcounter is a 7493; as long as both reset inputs are high, the counter is at zero
@@ -680,13 +640,13 @@ void checksync(int inc)
 
 void anyout()
 {
-	if (VSYNC_state) {
-		if (zx80)
-			VSYNC_state = 2; // will be reset by HSYNC circuitry
-		else
-			VSYNC_state = 0;
-		vsync_lower();
-	}
+  if (VSYNC_state) {
+    if (zx80)
+      VSYNC_state = 2; // will be reset by HSYNC circuitry
+    else
+      VSYNC_state = 0;
+    vsync_lower();
+  }
 }
 
 unsigned int in(int h, int l)
@@ -714,7 +674,7 @@ unsigned int in(int h, int l)
       case 0xdf:        return(ts|(keyports[5]^data));
       case 0xbf:        return(ts|(keyports[6]^data));
       case 0x7f:        return(ts|(keyports[7]^data));
-      
+
       default:
       {
         int i,mask,retval=0xff;
@@ -778,45 +738,45 @@ unsigned int out(int h, int l,int a)
     default:
     break;
   }
-  if (LastInstruction == LASTINSTNONE) 
+  if (LastInstruction == LASTINSTNONE)
     LastInstruction=LASTINSTOUTFF;
-  
+
   return 0; // No additional tstates
 }
 
 void vsync_raise(void)
 {
-	/* save current pos */
-	vsy=RasterY;
+  /* save current pos */
+  vsy=RasterY;
 }
 
 /* for vsync on -> off */
 void vsync_lower(void)
 {
-	int ny=RasterY;
+  int ny=RasterY;
 
-	/* we don't emulate this stuff by default; if nothing else,
-	* it can be fscking annoying when you're typing in a program.
-	*/
+  /* we don't emulate this stuff by default; if nothing else,
+  * it can be fscking annoying when you're typing in a program.
+  */
 
-	/* even when we do emulate it, we don't bother with x timing,
-	* just the y. It gives reasonable results without being too
-	* complicated, I think.
-	*/
-	if(vsy<0) vsy=0;
-	if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
-	if(ny<0) ny=0;
-	if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
+  /* even when we do emulate it, we don't bother with x timing,
+  * just the y. It gives reasonable results without being too
+  * complicated, I think.
+  */
+  if(vsy<0) vsy=0;
+  if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
+  if(ny<0) ny=0;
+  if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
 
-	/* XXX both of these could/should be made into single memset calls */
-	if(ny<vsy)
-	{
-		/* must be wrapping around a frame edge; do bottom half */
-		for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
-		memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
-		vsy=0;
-	}
+  /* XXX both of these could/should be made into single memset calls */
+  if(ny<vsy)
+  {
+    /* must be wrapping around a frame edge; do bottom half */
+    for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
+    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+    vsy=0;
+  }
 
-	for(int y=vsy;y<ny;y++)
-		memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+  for(int y=vsy;y<ny;y++)
+    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
 }

@@ -20,7 +20,15 @@
 
 /* Defines */
 
-/* Variables */
+/* Now unused Variables */
+int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
+int liney=0;
+unsigned long linestart=0;
+int vsync_toggle=0,vsync_lasttoggle=0;
+unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
+int hsyncskip=0;
+int ulacharline=0;
+
 
 /* Function prototypes */
 char *strtoupper(char *original);

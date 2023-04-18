@@ -26,15 +26,15 @@
  */
 #include <stdbool.h>
 /* full internal image with overscan (but not hsync/vsync areas) */
-#define ZX_VID_MARGIN		23
-#define ZX_VID_HMARGIN		(8*8)
+//#define ZX_VID_MARGIN		23
+//#define ZX_VID_HMARGIN		(8*8)
 //#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
 //#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
 #define ZX_VID_FULLWIDTH	400
 #define ZX_VID_FULLHEIGHT	300
 
 /* ahem :-) */
-#define FUDGE_FACTOR		(3*8)
+//#define FUDGE_FACTOR		(3*8)
 
 /* X image */
 #if 0
@@ -62,8 +62,8 @@
 #define ZX_VID_VGA_WIDTH	((32+4*2)*8)
 #define ZX_VID_VGA_HEIGHT	(192+4*2)
 #else
-#define ZX_VID_VGA_XOFS		8
-#define ZX_VID_VGA_YOFS		23
+#define ZX_VID_VGA_XOFS		46
+#define ZX_VID_VGA_YOFS		24
 #define ZX_VID_VGA_WIDTH	320
 #define ZX_VID_VGA_HEIGHT	240
 #endif

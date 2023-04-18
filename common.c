@@ -61,7 +61,7 @@ int invert_screen=0;
 
 /* Test variables */
 bool m1not = false;
-bool useWRX = false;
+bool useWRX = true;
 bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
@@ -718,140 +718,6 @@ else
 
 return(0);
 }
-
-
-unsigned int in(int h,int l)
-{
-int ts=0;		/* additional cycles*256 */
-int tapezeromask=0x80;	/* = 0x80 if no tape noise (?) */
-
-if(!(l&4)) l=0xfb;
-if(!(l&1)) l=0xfe;
-
-switch(l)
-  {
-  case 0xfb:
-    return(printer_inout(0,0));
-    
-  case 0xfe:
-    /* also disables hsync/vsync if nmi off
-     * (yes, vsync requires nmi off too, Flight Simulation confirms this)
-     */
-    if(!nmigen)
-      {
-      hsyncgen=0;
-
-      /* if vsync was on before, record position */
-      if(!vsync)
-        vsync_raise();
-      vsync=1;
-#ifdef OSS_SOUND_SUPPORT
-      sound_beeper(vsync);
-#endif
-      }
-
-    switch(h)
-      {
-      case 0xfe:	return(ts|(keyports[0]^tapezeromask));
-      case 0xfd:	return(ts|(keyports[1]^tapezeromask));
-      case 0xfb:	return(ts|(keyports[2]^tapezeromask));
-      case 0xf7:	return(ts|(keyports[3]^tapezeromask));
-      case 0xef:	return(ts|(keyports[4]^tapezeromask));
-      case 0xdf:	return(ts|(keyports[5]^tapezeromask));
-      case 0xbf:	return(ts|(keyports[6]^tapezeromask));
-      case 0x7f:	return(ts|(keyports[7]^tapezeromask));
-      default:
-        {
-        int i,mask,retval=0xff;
-        
-        /* some games (e.g. ZX Galaxians) do smart-arse things
-         * like zero more than one bit. What we have to do to
-         * support this is AND together any for which the corresponding
-         * bit is zero.
-         */
-        for(i=0,mask=1;i<8;i++,mask<<=1)
-          if(!(h&mask))
-            retval&=keyports[i];
-        return(ts|(retval^tapezeromask));
-        }
-      }
-    break;
-  }
-
-return(ts|255);
-}
-
-
-unsigned int out(int h,int l,int a)
-{
-int ts=0;	/* NO additional cycles */
-
-if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
-  {
-  /* the examples in the manual (using DF/0F) and the
-   * documented ports (CF/0F) don't match, so decode is
-   * important for that.
-   */
-  if(!(l&0xf0))		/* not sure how many needed, so assume all 4 */
-    l=0x0f;
-  else
-    if(!(l&0x20))		/* bit 5 low is common to DF and CF */
-      l=0xdf;
-  }
-
-if(!(l&4)) l=0xfb;
-if(!(l&2)) l=0xfd;
-if(!(l&1)) l=0xfe;
-
-/*printf("out %2X\n",l);*/
-
-switch(l)
-  {
-#ifdef OSS_SOUND_SUPPORT	/* Thunor: this was missing */
-  case 0x0f:		/* Zon X data */
-    if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
-      sound_ay_write(ay_reg,a);
-    break;
-  case 0xdf:		/* Zon X reg. select */
-    if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
-      ay_reg=(a&15);
-    break;
-#endif
-
-  case 0xfb:
-    return(ts|printer_inout(1,a));
-  case 0xfd:
-    nmigen=0;
-    if(vsync)
-      vsync_lower();
-    vsync=0;
-    hsyncgen=1;
-#ifdef OSS_SOUND_SUPPORT
-    sound_beeper(vsync);
-#endif
-    break;
-  case 0xfe:
-    if(!zx80)
-      {
-      nmigen=1;
-      break;
-      }
-    /* falls through, if zx80 */
-  case 0xff:	/* XXX should *any* out turn off vsync? [copied to 0xfd] */
-    /* fill screen gap since last raising of vsync */
-    if(vsync)
-      vsync_lower();
-    vsync=0;
-    hsyncgen=1;
-#ifdef OSS_SOUND_SUPPORT
-    sound_beeper(vsync);
-#endif
-    break;
-  }
-
-return(ts);
-}
-
 
 #ifndef SZ81	/* Added by Thunor */
 /* the ZX81 char is used to index into this, to give the ascii.

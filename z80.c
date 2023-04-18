@@ -26,7 +26,7 @@
 #include "sdl.h"
 #endif
 
-#define DEBUG_PRINT
+//#define DEBUG_PRINT
 #ifdef DEBUG_PRINT
 static int lastRasterY = -1;
 static int print_debug = 0;
@@ -39,6 +39,58 @@ static unsigned char debug_i = 0;
 static unsigned char debug_r = 0;
 static unsigned char debug_radjust = 0;
 #endif
+
+// New definitions
+#define LASTINSTNONE  0
+#define LASTINSTINFE  1
+#define LASTINSTOUTFE 2
+#define LASTINSTOUTFD 3
+#define LASTINSTOUTFF 4
+
+#define HTOLMIN 414-30
+#define HTOLMAX 414+30
+#define VTOLMIN 310-100
+#define VTOLMAX 310+100
+#define HMIN 8
+#define HMAX 32
+#define VMIN 170
+
+const static int HSYNC_TOLERANCEMIN = HTOLMIN;
+const static int HSYNC_TOLERANCEMAX = HTOLMAX;
+const static int VSYNC_TOLERANCEMIN = VTOLMIN;
+const static int VSYNC_TOLERANCEMAX = VTOLMAX;
+const static int HSYNC_MINLEN = HMIN;
+const static int HSYNC_MAXLEN = HMAX;
+const static int VSYNC_MINLEN = VMIN;
+
+const static int HSYNC_START = 16;
+const static int HSYNC_END = 32;
+
+static int RasterX = 0;
+static int RasterY = 0;
+static int TVP;
+static int dest;
+
+static int int_pending, nmi_pending, hsync_pending;
+
+static int LastInstruction;
+static int NMI_generator;
+static int VSYNC_state, HSYNC_state, SYNC_signal;
+static int psync, sync_len;
+static int rowcounter=0;
+static int hsync_counter=0;
+
+void checkhsync(int tolchk);
+void checkvsync(int tolchk);
+void checksync(int inc);
+void anyout();
+void vsync_raise(void);
+void vsync_lower(void);
+
+extern int printer_inout(int is_out,int val);
+
+
+// end new definitions
 
 #define parity(a) (partable[a])
 
@@ -62,7 +114,8 @@ unsigned char partable[256]={
    };
 
 
-unsigned long tstates=0,tsmax=64998,frames=0;
+//unsigned long tstates=0,tsmax=64998,frames=0;
+unsigned long tstates=0,tsmax=65000,frames=0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
 unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8]; /* written */
@@ -71,10 +124,7 @@ unsigned char scrnbmp_old[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];
 						/* checked against for diffs */
 
 #ifdef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
-int liney=0;
 int vsy=0;
-unsigned long linestart=0;
-int vsync_toggle=0,vsync_lasttoggle=0;
 #else
 static int liney=0, lineyi=0;
 static int vsy=0;
@@ -84,49 +134,11 @@ static int vsync_toggle=0,vsync_lasttoggle=0;
 
 int ay_reg=0;
 
-static int linestate=0, linex=0, nrmvideo=1;
+//static int linestate=0, linex=0; 
+//static int nrmvideo=1;
 
-/* for vsync off -> on */
-void vsync_raise(void)
-{
-  /* save current pos */
-  vsy=liney;
-}
-
-/* for vsync on -> off */
-void vsync_lower(void)
-{
-  int ny=liney,y;
-
-  vsync_toggle++;
-
-  /* we don't emulate this stuff by default; if nothing else,
-  * it can be fscking annoying when you're typing in a program.
-  */
-  if(!vsync_visuals)
-    return;
-
-  /* even when we do emulate it, we don't bother with x timing,
-  * just the y. It gives reasonable results without being too
-  * complicated, I think.
-  */
-  if(vsy<0) vsy=0;
-  if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
-  if(ny<0) ny=0;
-  if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
-
-  /* XXX both of these could/should be made into single memset calls */
-  if(ny<vsy)
-  {
-    /* must be wrapping around a frame edge; do bottom half */
-    for(y=vsy;y<ZX_VID_FULLHEIGHT;y++)
-      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH/8),0xff,ZX_VID_FULLWIDTH/8);
-    vsy=0;
-  }
-
-  for(y=vsy;y<ny;y++)
-    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH/8),0xff,ZX_VID_FULLWIDTH/8);
-}
+static inline int z80_interrupt(void);
+static inline int nmi_interrupt(void);
 
 #ifndef SZ81	/* Added by Thunor. I need these to be visible to sdl_loadsave.c */
 void mainloop()
@@ -137,13 +149,10 @@ unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
 unsigned short pc;
 unsigned short ix, iy, sp;
 unsigned char radjust;
-unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 unsigned char ixoriy, new_ixoriy;
 unsigned char intsample=0;
 unsigned char op;
-int ulacharline=0;
-int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
-int hsyncskip=0;
+//int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
 int framewait=0;
 int minx = ZX_VID_FULLHEIGHT;
 int maxx = 0;
@@ -151,11 +160,11 @@ int maxx = 0;
 #ifdef SZ81	/* Added by Thunor */
 void mainloop()
 {
-  nextlinetime=0; linegap=207; lastvsyncpend=0;
+  //nextlinetime=0; linegap=207; lastvsyncpend=0;
   intsample=0;
-  ulacharline=0;
-  nmipend=0; intpend=0; vsyncpend=0; vsynclen=0;
-  hsyncskip=0;
+  //ulacharline=0;
+  //nmipend=0; intpend=0; vsyncpend=0; vsynclen=0;
+  //hsyncskip=0;
   framewait=0;
 #endif
   bool videodata;
@@ -164,7 +173,21 @@ void mainloop()
   ixoriy=new_ixoriy=0;
   ix=iy=sp=pc=0;
   tstates=radjust=0;
-  nextlinetime=linegap;
+  //nextlinetime=linegap;
+
+	RasterX = 0;
+	RasterY = 0;
+	dest = 0;
+	psync = 1;
+	sync_len = 0;
+	TVP = ZX_VID_FULLWIDTH;
+
+/* ULA */
+
+	NMI_generator=0;
+	int_pending=0;
+	hsync_pending=0;
+	VSYNC_state=HSYNC_state=0;
 
 #ifdef SZ81	/* Added by Thunor */
   if(sdl_emulator.autoload)
@@ -205,6 +228,10 @@ void mainloop()
     framewait=1;
   }
 #endif
+  unsigned long ts;
+  unsigned long tstore;
+  unsigned char v=0;
+  unsigned char radsave;
 
   while(1)
   {
@@ -247,329 +274,229 @@ void mainloop()
     }
 #endif
 #endif
+    v=0;
+    ts = 0;
+    LastInstruction = LASTINSTNONE;
+    //intsample = 1;
+
     /* this *has* to be checked before radjust is incr'd */
-    if(intsample && !(radjust&64))
-      intpend=1;
-
-    ixoriy=new_ixoriy;
-    new_ixoriy=0;
-    intsample=1;
-
-    op = fetchm(pc);
-#ifdef DEBUG_PRINT
-    debug_op = op;
-#endif
-
-    if (m1not && pc<0xC000)
+    radsave = radjust;
+    if(intsample && nmi_pending)
     {
-      videodata = false;
-    } else {
-      videodata = (pc&0x8000) ? true: false;
+      ts = nmi_interrupt();
+    }
+    else if (intsample && int_pending)
+    {
+      ts += z80_interrupt();
+      hsync_counter = -2;             /* INT ACK after two tstates */
+      hsync_pending = 1;              /* a HSYNC may be started */
     }
 
-    if (videodata && (!(op&64) && linestate==0))
+    if (!ts)
     {
-      nrmvideo = (i<0x20) || (i<0x40 && LowRAM && (!useWRX));
-      linestate = 1;
-      linex = 200 - (nextlinetime - tstates);
-      linex = linex>0 ? linex : 0;
+      // Get the next op, calculate the next byte to display and execute the op
+      ixoriy=new_ixoriy;
+      new_ixoriy=0;
+      intsample=1;
 
-      if (liney<ZX_VID_MARGIN)
-        liney=ZX_VID_MARGIN;
-    }
+      op = fetchm(pc);
 
-#ifdef DEBUG_PRINT
-    if (liney==ZX_VID_MARGIN)
-    {
-      if (dump_debug)
+      if (m1not && pc<0xC000)
       {
-        print_debug = 1;
-        lastRasterY = -1;
-        dump_debug = 0;
+        videodata = false;
+      } else {
+        videodata = (pc&0x8000) ? true: false;
       }
-      else if (clear_debug ==1 )
+
+      if(videodata && !(op&64))
       {
-        clear_debug = 0;
-        print_debug = 0;
-      }
-    }
-#endif
-
-    if (!nrmvideo) ulacharline = 0;
-
-    if(videodata && !(op&64))
-    {
-/*    printf("ULA %3d,%3d = %02X\n",x,y,op);*/
-      if(liney>=0 && liney<ZX_VID_FULLHEIGHT &&
-        linex>=0 && linex<(ZX_VID_FULLWIDTH>>1))
-      {
-        unsigned char v=255;
-
-        maxx = (maxx>linex) ? maxx : linex;
-        minx = (minx<linex) ? minx : linex;
-
-        if (nrmvideo)
+        if (SYNC_signal)
         {
-          int addr = ((i&0xfe)<<8)|((op&63)<<3)|ulacharline;
-          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
+          v=0xff;
+
+          if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
           {
-            v = font[addr-((op&128)?0x1C00:0x1E00)];
+            int addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
+            if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
+            {
+              v = font[addr-((op&128)?0x1C00:0x1E00)];
+            }
+            else
+            {
+              v = mem[addr];
+            }
           }
           else
           {
-            v = mem[addr];
+            int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
+            if (useWRX)
+            {
+              v = mem[addr];
+            }
           }
+          v = (op&128)?~v:v;
+        }
+        op=0;	/* the CPU sees a nop */
+      }
+
+      pc++;
+      radjust++;
+
+      tstore = tstates;
+      switch(op)
+      {
+#include "z80ops.c"
+      }
+      ts = tstates - tstore;
+      tstates = tstore;
+    }
+
+    nmi_pending = int_pending = 0;
+    tstates += ts;
+
+    if(intsample && !((radsave)&64) && iff1)
+      int_pending=1;
+
+    switch(LastInstruction)
+    {
+      case LASTINSTOUTFD:
+        NMI_generator = nmi_pending = 0;
+        anyout();
+      break;
+      case LASTINSTOUTFE:
+        if (!zx80)
+        {
+          NMI_generator=1;
+        }
+        anyout();
+      break;
+      case LASTINSTINFE:
+        if (!NMI_generator)
+        {
+          if (VSYNC_state==0)
+          {
+            VSYNC_state = 1;
+            vsync_raise();
+          }
+        }
+      break;
+      case LASTINSTOUTFF:
+        anyout();
+        if (zx80) hsync_pending=1;
+      break;
+      default:
+      break;
+    }
+
+    /* Plot data in shift register */
+    if (SYNC_signal)
+    {
+      int k = TVP + dest + RasterX;
+
+      if (v &&
+          (RasterX < ZX_VID_FULLWIDTH) &&
+        (k < ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT))
+      {
+        int kh = k >> 3;
+        int kl = k & 7;
+
+        if (kl)
+        {
+          scrnbmp_new[kh++]|=(v>>kl);
+          scrnbmp_new[kh]=(v<<(8-kl));
         }
         else
         {
-          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
-          if (useWRX)
-          {
-            v = mem[addr];
-          }
+          scrnbmp_new[kh]=v;
         }
-
-        int p = linex>>2;
-        int b = (linex&0x3)<<1;
-        v = (op&128)?~v:v;
-
-#ifdef DEBUG_PRINT
-        debug_v = v;
-        debug_i = i;
-        debug_r = r;
-        debug_radjust = radjust;
-#endif
-        if (v)
-        {
-          if (b)
-          {
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p++]|=(v>>b);
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=(v<<(8-b));
-          }
-          else
-          {
-            scrnbmp_new[liney*(ZX_VID_FULLWIDTH/8)+p]=v;
-          }
-#ifdef DEBUG_PRINT
-          if (print_debug && lastRasterY < liney)
-          {
-            printf("Y = %i, x=%i, ts = %li, remaining %li\n",
-                  liney, linex, tstates, tstates-linestart);
-            lastRasterY = liney;
-            if (liney > ZX_VID_MARGIN)
-              clear_debug = 1;
-          }
-        }
-#endif
       }
-      op=0;	/* the CPU sees a nop */
     }
-#ifdef DEBUG_PRINT
-    else
-    {
-      debug_v = 0;
-      debug_i = i;
-      debug_r = r;
-      debug_radjust = radjust;
-    }
-#endif
-    pc++;
-    radjust++;
 
-    int tinc = tstates;
-    switch(op)
+		const static int tstate_jump = 8; // Step up to 8 tstates at a time
+		int tstate_inc;
+		int states_remaining = ts;
+		int since_hstart = 0;
+    int tswait = 0;
+
+		do
+		{
+			tstate_inc = states_remaining > tstate_jump ? tstate_jump: states_remaining;
+			states_remaining -= tstate_inc;
+
+			hsync_counter+=tstate_inc;
+			RasterX += (tstate_inc<<1);
+
+			if (hsync_counter >= 207)
+			{
+				hsync_counter -= 207;
+				if (!zx80) hsync_pending = 1;
+			}
+
+			// Start of HSYNC, and NMI if enabled
+			if (hsync_pending==1 && hsync_counter>=HSYNC_START)
+			{
+				if (NMI_generator)
+				{
+					nmi_pending = 1;
+					if (ts==4)
+					{
+						tswait = 14 + (3-states_remaining - (hsync_counter - HSYNC_START));
+					}
+					else
+					{
+						tswait = 14;
+					}
+					states_remaining += tswait;
+					ts += tswait;
+					tstates += tswait;
+				}
+
+				HSYNC_state = 1;
+				since_hstart = hsync_counter - HSYNC_START + 1;
+
+				if (VSYNC_state)
+				{
+					rowcounter = 0;
+				} else
+				{
+					rowcounter++;
+					rowcounter &= 7;
+				}
+				hsync_pending = 2;
+			}
+
+			// end of HSYNC
+			if (hsync_pending==2 && hsync_counter>=HSYNC_END)
+			{
+				if (VSYNC_state==2)
+					VSYNC_state = 0;
+				HSYNC_state = 0;
+				hsync_pending = 0;
+			}
+
+			// NOR the vertical and horizontal SYNC states to create the SYNC signal
+			SYNC_signal = (VSYNC_state || HSYNC_state) ? 0 : 1;
+			checksync(since_hstart ? since_hstart : tstate_jump);
+			since_hstart = 0;
+		}
+		while (states_remaining);
+
+		if (frames == 30 && tstates > 30500)
     {
-#include "z80ops.c"
+			int c=frames;
     }
-    tinc = tstates - tinc;
-    linex += tinc;
-#ifdef DEBUG_PRINT
-    if (debug_tracking)
-    {
-      printf("op %02x org op %02x ts %02i pc %04x linex %3i disp %02x i %02x r %02x a %02x\n",
-             op, debug_op, tinc, pc, linex, debug_v, debug_i, debug_r, debug_radjust);
-    }
-#endif
+
     if(tstates>=tsmax)
     {
       tstates-=tsmax;
-      linestart-=tsmax;
-      nextlinetime-=tsmax;
-      lastvsyncpend-=tsmax;
-      vsync_lasttoggle=vsync_toggle;
-      vsync_toggle=0;
 
       frames++;
       frame_pause();
-    }
+      if (frames==32)
+			{
+				int c=frames;
+			}
 
-    /* the vsync length test is pretty arbitrary, because
-    * the timing isn't very accurate (more or less an instruction
-    * count) - but it's good enough in practice.
-    *
-    * the vsync_toggle test is fairly arbitrary too;
-    * there has to have been `not too many' for a TV to get
-    * confused. In practice, more than one would screw it up,
-    * but since we could be looking at over a frames' worth
-    * given where vsync_toggle is zeroed, we play it safe.
-    * also, we use a copy of the previous chunk's worth,
-    * since we need a full frame(-plus) to decide this.
-    */
-    if(vsynclen && !vsync)
-    {
-      if(vsynclen>=10)
-      {
-        if(vsync_lasttoggle<=2)
-        {
-          vsyncpend=1;	/* start of frame */
-          /* FAST mode screws up without this, but it's a bit
-          * unpleasant... :-/
-          */
-          tstates=nextlinetime;
-        }
-      }
-      else
-      {
-        /* independent timing for this would be awkward, so
-        * anywhere on the line is good enough. Also,
-        * don't count it as a toggle.
-        */
-        vsync_toggle--;
-        hsyncskip=1;
-      }
-    }
-
-    /* should do this all the time vsync is set */
-    if(vsync)
-    {
-      ulacharline=0;
-      vsynclen++;
-    }
-    else
-      vsynclen=0;
-
-    if(tstates>=nextlinetime)	/* new line */
-    {
-      /* generate fake sync if we haven't had one for a while;
-      * but if we just loaded/saved, wait for the first real frame instead
-      * to avoid jumpiness.
-      */
-      if(!vsync && tstates-lastvsyncpend>=tsmax*2 && !framewait)
-        vsyncpend=1;
-
-      /* but that won't ever happen if we always have vsync on -
-      * i.e., if we're grinding away in FAST mode. So for that
-      * case, we check for vsync being held for a full frame.
-      */
-      if(vsync_visuals && vsynclen>=tsmax)
-      {
-        vsyncpend=1;
-        vsynclen=1;
-
-        memset(scrnbmp,0xff,sizeof(scrnbmp));	/* blank the screen */
-        goto postcopy;				/* skip the usual copying */
-      }
-
-      if(!vsyncpend)
-      {
-        liney++;
-        linestate = 0;
-#ifdef DEBUG_PRINT
-        if (print_debug && liney == 201)
-          debug_tracking = 1;
-        else if (print_debug && liney == 205)
-          debug_tracking = 0;
-#endif
-
-        if(hsyncgen && !hsyncskip)
-        {
-  /*        printf("hsync %d\n",tstates);*/
-          ulacharline++;
-          ulacharline&=7;
-        }
-      }
-      else
-      {
-        memcpy(scrnbmp,scrnbmp_new,sizeof(scrnbmp));
-        postcopy:
-        memset(scrnbmp_new,0,sizeof(scrnbmp_new));
-        lastvsyncpend=tstates;
-        vsyncpend=0;
-        framewait=0;
-        liney=-1;		/* XXX might be something up here */
-        minx = ZX_VID_FULLHEIGHT;
-        maxx = 0;
-
-  /*      printf("FRAME START - %s\n",(mem[16443]&128)?"slow":"fast");*/
-      }
-
-      if(nmigen)
-        nmipend=1;
-
-      hsyncskip=0;
-      linestart=nextlinetime;
-      nextlinetime+=linegap;
-    }
-
-    if(intsample && nmipend)
-    {
-      nmipend=0;
-
-      if(nmigen)
-      {
-  /*      printf("NMI line %d tst %d\n",liney,tstates);*/
-        iff2=iff1;
-        iff1=0;
-        /* hardware syncs tstates to falling of NMI pulse (?),
-        * so a slight kludge here...
-        */
-        if(fetch(pc&0x7fff)==0x76)
-        {
-          pc++;
-          tstates=linestart;
-        }
-        else
-        {
-          /* this seems curiously long, but equally, seems
-          * to be just about right. :-)
-          */
-          tstates+=26;
-          if ((frames&0x1) && ((frames&0xf) != 0xf))
-              tstates--;
-        }
-        push2(pc);
-        pc=0x66;
-      }
-    }
-
-    if(intsample && intpend)
-    {
-      intpend=0;
-
-      if(iff1)
-      {
-  /*      printf("int line %d tst %d\n",liney,tstates);*/
-        if(fetch(pc&0x7fff)==0x76)pc++;
-        iff1=iff2=0;
-        tstates+=5; /* accompanied by an input from the data bus */
-        switch(im)
-        {
-          case 0: /* IM 0 */
-          case 1: /* undocumented */
-          case 2: /* IM 1 */
-            /* there is little to distinguish between these cases */
-            tstates+=8; /* perhaps */
-            push2(pc);
-            pc=0x38;
-          break;
-          case 3: /* IM 2 */
-            /* Used by some hires drivers */
-            tstates+=11; /* perhaps */
-            int addr=fetch2((i<<8)|0xff);
-            push2(pc);
-            pc=addr;
-        }
-      }
     }
 
     /* this isn't used for any sort of Z80 interrupts,
@@ -598,9 +525,9 @@ void mainloop()
         ixoriy=new_ixoriy=0;
         ix=iy=sp=pc=0;
         tstates=radjust=0;
-        nextlinetime=linegap;
-        vsyncpend=vsynclen=0;
-        hsyncskip=0;
+        //nextlinetime=linegap;
+        //vsyncpend=vsynclen=0;
+        //hsyncskip=0;
       }
     }
 #ifdef  SZ81
@@ -614,12 +541,282 @@ void z80_reset(void)
   /* Reinitialise variables at the top of z80.c */
   tstates=0;
   frames=0;
-  liney=0;
+  //liney=0;
   vsy=0;
-  linestart=0;
-  vsync_toggle=0;
-  vsync_lasttoggle=0;
+  //linestart=0;
+  //vsync_toggle=0;
+  //vsync_lasttoggle=0;
   ay_reg=0;
 }
 #endif
 
+static inline int z80_interrupt(void)
+{
+  int tinc=0;
+//  intpend=0;
+
+  if(iff1)
+  {
+    if(fetch(pc&0x7fff)==0x76)
+    {
+      pc++;
+    }
+    iff1=iff2=0;
+    push2(pc);
+
+    // inc r????
+    //r++;
+    radjust++;
+
+    switch(im)
+    {
+      case 0: /* IM 0 */
+      case 2: /* IM 1 */
+        pc=0x38;
+        tinc=13;
+      break;
+      case 3: /* IM 2 */
+      {
+        int addr=fetch2((i<<8)|0xff);
+        pc=addr;
+        tinc=19;
+      }
+      break;
+
+      default:
+        tinc=12;
+      break;
+    }
+  }
+  return tinc;
+}
+
+static inline int nmi_interrupt(void)
+{
+//  nmipend=0;
+
+  //iff2=iff1;
+  iff1=0;
+  /* hardware syncs tstates to falling of NMI pulse (?),
+  * so a slight kludge here...
+  */
+  if(fetch(pc&0x7fff)==0x76)
+  {
+    pc++;
+  }
+  push2(pc);  
+  // Increment r?
+  radjust++;
+
+  //r++;
+  pc=0x66;
+
+  return 11;
+}
+
+/* Normally, these sync checks are done by the TV :-) */
+void checkhsync(int tolchk)
+{
+	if ( ( !tolchk && sync_len >= HSYNC_MINLEN && sync_len <= HSYNC_MAXLEN && RasterX>=HSYNC_TOLERANCEMIN ) ||
+	     (  tolchk &&                                                         RasterX>=HSYNC_TOLERANCEMAX ) )
+	{
+		RasterX = (hsync_counter - HSYNC_END) << 1;
+		RasterY++;
+#ifdef DEBUG_PRINT        
+        if (print_debug && RasterY == 203)
+          debug_tracking = 1;
+        else if (print_debug && RasterY == 206)
+          debug_tracking = 0;
+#endif
+				
+		dest += TVP;
+	}
+}
+
+void checkvsync(int tolchk)
+{
+	if ( ( !tolchk && sync_len >= VSYNC_MINLEN && RasterY>=VSYNC_TOLERANCEMIN ) ||
+	     (  tolchk &&                             RasterY>=VSYNC_TOLERANCEMAX ) )
+	{
+		RasterY = 0;
+		dest = 0;
+
+		if (sync_len>tsmax)
+		{
+			// If there has been no sync for an entire frame then blank the screen
+			memset(scrnbmp, 0xff, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+			sync_len = 0;
+		}
+		else
+		{
+			memcpy(scrnbmp,scrnbmp_new,sizeof(scrnbmp));
+		}
+		memset(scrnbmp_new, 0x00, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+	}
+}
+
+void checksync(int inc)
+{
+	if (!SYNC_signal)
+	{
+		if (psync==1)
+			sync_len = 0;
+		sync_len += inc;
+		checkhsync(1);
+		checkvsync(1);
+	} else
+	{
+		if (!psync)
+		{
+			checkhsync(0);
+			checkvsync(0);
+		}
+	}
+	psync = SYNC_signal;
+}
+
+/* The rowcounter is a 7493; as long as both reset inputs are high, the counter is at zero
+   and cannot count. Any out sets it free. */
+
+void anyout()
+{
+	if (VSYNC_state) {
+		if (zx80)
+			VSYNC_state = 2; // will be reset by HSYNC circuitry
+		else
+			VSYNC_state = 0;
+		vsync_lower();
+	}
+}
+
+unsigned int in(int h, int l)
+{
+  int ts=0;               /* additional cycles*256 */
+  static int tapemask=0;
+  int data=0;             /* = 0x80 if no tape noise (?) */
+
+  tapemask++;
+  data |= (tapemask & 0x0100) ? 0x80 : 0;
+
+  if (!(l&1))
+  {
+    LastInstruction=LASTINSTINFE;
+
+    if (l==0x7e) return 0; // for Lambda
+
+    switch(h)
+    {
+      case 0xfe:        return(ts|(keyports[0]^data));
+      case 0xfd:        return(ts|(keyports[1]^data));
+      case 0xfb:        return(ts|(keyports[2]^data));
+      case 0xf7:        return(ts|(keyports[3]^data));
+      case 0xef:        return(ts|(keyports[4]^data));
+      case 0xdf:        return(ts|(keyports[5]^data));
+      case 0xbf:        return(ts|(keyports[6]^data));
+      case 0x7f:        return(ts|(keyports[7]^data));
+      
+      default:
+      {
+        int i,mask,retval=0xff;
+        /* some games (e.g. ZX Galaxians) do smart-arse things
+          * like zero more than one bit. What we have to do to
+          * support this is AND together any for which the corresponding
+          * bit is zero.
+          */
+        for(i=0,mask=1;i<8;i++,mask<<=1)
+          if(!(h&mask))
+            retval&=keyports[i];
+        return(ts|(retval^data));
+      }
+    }
+  }
+
+  switch(l)
+  {
+    case 0xfb:
+      return (printer_inout(0,0));
+
+    default:
+    break;
+  }
+  return(255);
+}
+
+unsigned int out(int h, int l,int a)
+{
+  switch(l)
+  {
+    case 0x0f:
+      if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
+        sound_ay_write(ay_reg,a);
+    break;
+
+    case 0xbf:
+    case 0xcf:
+    case 0xdf:
+      if(sound_ay && sound_ay_type==AY_TYPE_ZONX)
+        ay_reg=(a&15);
+    break;
+
+    case 0xfb:
+      return (printer_inout(1, a));
+    break;
+
+    case 0xfd:
+      if (zx80) break;
+      LastInstruction = LASTINSTOUTFD;
+    break;
+
+    case 0xfe:
+      if (zx80) break;
+      LastInstruction = LASTINSTOUTFE;
+    break;
+
+    case 0xff: // default out handled below
+    break;
+
+    default:
+    break;
+  }
+  if (LastInstruction == LASTINSTNONE) 
+    LastInstruction=LASTINSTOUTFF;
+  
+  return 0; // No additional tstates
+}
+
+void vsync_raise(void)
+{
+	/* save current pos */
+	vsy=RasterY;
+}
+
+/* for vsync on -> off */
+void vsync_lower(void)
+{
+	int ny=RasterY;
+
+	/* we don't emulate this stuff by default; if nothing else,
+	* it can be fscking annoying when you're typing in a program.
+	*/
+
+	/* even when we do emulate it, we don't bother with x timing,
+	* just the y. It gives reasonable results without being too
+	* complicated, I think.
+	*/
+	if(vsy<0) vsy=0;
+	if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
+	if(ny<0) ny=0;
+	if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
+
+	/* XXX both of these could/should be made into single memset calls */
+	if(ny<vsy)
+	{
+		/* must be wrapping around a frame edge; do bottom half */
+		for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
+		memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+		vsy=0;
+	}
+
+	for(int y=vsy;y<ny;y++)
+		memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+}

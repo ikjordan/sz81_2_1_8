@@ -373,13 +373,13 @@ ixiyloop:
     }
 
     /* Plot data in shift register */
-    if (SYNC_signal)
+    if (v &&
+          (RasterX >= (ZX_VID_VGA_XOFS-2)) &&
+          (RasterX < (ZX_VID_VGA_WIDTH + ZX_VID_VGA_XOFS-2)) &&
+          (RasterY >=ZX_VID_VGA_YOFS) &&
+          (RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
     {
       int k = TVP + dest + RasterX + 2;
-
-      if (v &&
-          (RasterX < ZX_VID_FULLWIDTH) &&
-          (k < ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT))
       {
         int kh = k >> 3;
         int kl = k & 7;
@@ -453,7 +453,10 @@ ixiyloop:
       if (hsync_pending==2 && hsync_counter>=HSYNC_END)
       {
         if (VSYNC_state==2)
+        {
           VSYNC_state = 0;
+          vsync_lower();
+        }
         HSYNC_state = 0;
         hsync_pending = 0;
       }
@@ -468,7 +471,6 @@ ixiyloop:
     if(tstates>=tsmax)
     {
       tstates-=tsmax;
-
       frames++;
       frame_pause();
     }
@@ -539,6 +541,7 @@ static inline int z80_interrupt(void)
     if(fetchm(pc)==0x76)
     {
       pc++;
+      tinc=4;
     }
     iff1=iff2=0;
     push2(pc);
@@ -549,18 +552,18 @@ static inline int z80_interrupt(void)
       case 0: /* IM 0 */
       case 2: /* IM 1 */
         pc=0x38;
-        tinc=13;
+        tinc+=13;
       break;
       case 3: /* IM 2 */
       {
         int addr=fetch2((i<<8)|0xff);
         pc=addr;
-        tinc=19;
+        tinc+=19;
       }
       break;
 
       default:
-        tinc=12;
+        tinc+=12;
       break;
     }
   }
@@ -569,16 +572,18 @@ static inline int z80_interrupt(void)
 
 static inline int nmi_interrupt(void)
 {
+  int tinc=0;
   iff1=0;
   if(fetchm(pc)==0x76)
   {
     pc++;
+    tinc=4;
   }
   push2(pc);
   radjust++;
   pc=0x66;
 
-  return 11;
+  return tinc+11;
 }
 
 /* Normally, these sync checks are done by the TV :-) */
@@ -642,10 +647,14 @@ void anyout()
 {
   if (VSYNC_state) {
     if (zx80)
-      VSYNC_state = 2; // will be reset by HSYNC circuitry
+    {
+			VSYNC_state = 2; // will be reset by HSYNC circuitry
+    }
     else
+    {
       VSYNC_state = 0;
-    vsync_lower();
+      vsync_lower();
+    }
   }
 }
 
@@ -753,30 +762,33 @@ void vsync_raise(void)
 /* for vsync on -> off */
 void vsync_lower(void)
 {
-  int ny=RasterY;
-
-  /* we don't emulate this stuff by default; if nothing else,
-  * it can be fscking annoying when you're typing in a program.
-  */
-
-  /* even when we do emulate it, we don't bother with x timing,
-  * just the y. It gives reasonable results without being too
-  * complicated, I think.
-  */
-  if(vsy<0) vsy=0;
-  if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
-  if(ny<0) ny=0;
-  if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
-
-  /* XXX both of these could/should be made into single memset calls */
-  if(ny<vsy)
+  if ((RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)) || (vsy < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
   {
-    /* must be wrapping around a frame edge; do bottom half */
-    for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
-    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
-    vsy=0;
-  }
+    int ny=RasterY;
 
-  for(int y=vsy;y<ny;y++)
-    memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+    /* we don't emulate this stuff by default; if nothing else,
+    * it can be fscking annoying when you're typing in a program.
+    */
+
+    /* even when we do emulate it, we don't bother with x timing,
+    * just the y. It gives reasonable results without being too
+    * complicated, I think.
+    */
+    if(vsy<0) vsy=0;
+    if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
+    if(ny<0) ny=0;
+    if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
+
+    /* XXX both of these could/should be made into single memset calls */
+    if(ny<vsy)
+    {
+      /* must be wrapping around a frame edge; do bottom half */
+      for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
+      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+      vsy=0;
+    }
+
+    for(int y=vsy;y<ny;y++)
+      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+  }
 }

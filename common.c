@@ -317,6 +317,7 @@ void initmem()
 int f;
 int ramsize;
 int count;
+int gap = 0;  // For 3K total RAM
 
 loadrom();
 #ifdef SZ81	/* Added by Thunor */
@@ -357,10 +358,15 @@ if(unexpanded)
   ramsize=1;
 #endif
 count=0;
+if (ramsize==3)
+{
+  ramsize=4;
+  gap = 1;
+}
 for(f=16;f<32;f++)
   {
   memattr[f]=memattr[32+f]=1;
-  memptr[f]=memptr[32+f]=mem+1024*(16+count);
+  memptr[f]=memptr[32+f]=mem+1024*(16+((gap && count==3) ? 2 : count));
   count++;
   if(count>=ramsize) count=0;
   }

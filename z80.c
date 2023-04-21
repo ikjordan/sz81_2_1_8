@@ -762,6 +762,9 @@ void vsync_raise(void)
 /* for vsync on -> off */
 void vsync_lower(void)
 {
+  if (!vsync_visuals)
+    return;
+
   if ((RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)) || (vsy < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
   {
     int ny=RasterY;
@@ -774,21 +777,18 @@ void vsync_lower(void)
     * just the y. It gives reasonable results without being too
     * complicated, I think.
     */
-    if(vsy<0) vsy=0;
-    if(vsy>=ZX_VID_FULLHEIGHT) vsy=ZX_VID_FULLHEIGHT-1;
-    if(ny<0) ny=0;
-    if(ny>=ZX_VID_FULLHEIGHT) ny=ZX_VID_FULLHEIGHT-1;
+    if(vsy>=ZX_VID_FULLHEIGHT)
+      vsy=ZX_VID_FULLHEIGHT-1;
+    if(ny>=ZX_VID_FULLHEIGHT)
+      ny=ZX_VID_FULLHEIGHT-1;
 
     /* XXX both of these could/should be made into single memset calls */
     if(ny<vsy)
     {
       /* must be wrapping around a frame edge; do bottom half */
-      for(int y=vsy;y<ZX_VID_FULLHEIGHT;y++)
-      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+      memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*(ZX_VID_FULLHEIGHT-vsy));
       vsy=0;
     }
-
-    for(int y=vsy;y<ny;y++)
-      memset(scrnbmp_new+y*(ZX_VID_FULLWIDTH>>3),0xff,ZX_VID_FULLWIDTH>>3);
+    memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*(ny-vsy));
   }
 }

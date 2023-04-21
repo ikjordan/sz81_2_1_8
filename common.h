@@ -62,8 +62,8 @@
 #define ZX_VID_VGA_WIDTH	((32+4*2)*8)
 #define ZX_VID_VGA_HEIGHT	(192+4*2)
 #else
-#define ZX_VID_VGA_XOFS		48
-#define ZX_VID_VGA_YOFS		25
+#define ZX_VID_VGA_XOFS		56
+#define ZX_VID_VGA_YOFS		24
 #define ZX_VID_VGA_WIDTH	320
 #define ZX_VID_VGA_HEIGHT	240
 #endif

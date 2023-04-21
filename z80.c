@@ -379,7 +379,7 @@ ixiyloop:
           (RasterY >=ZX_VID_VGA_YOFS) &&
           (RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
     {
-      int k = TVP + dest + RasterX + 2;
+      int k = dest + RasterX + 2;
       {
         int kh = k >> 3;
         int kl = k & 7;

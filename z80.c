@@ -52,6 +52,7 @@ const static int VSYNC_MINLEN = VMIN;
 const static int HSYNC_START = 16;
 const static int HSYNC_END = 32;
 const static int HLEN = 207;
+const static int tstate_jump = 8; // Step up to 8 tstates at a time
 
 static int RasterX = 0;
 static int RasterY = 0;
@@ -138,8 +139,6 @@ unsigned char intsample=0;
 unsigned char op;
 //int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
 int framewait=0;
-int minx = ZX_VID_FULLHEIGHT;
-int maxx = 0;
 
 #ifdef SZ81 /* Added by Thunor */
 void mainloop()
@@ -164,9 +163,13 @@ void mainloop()
 /* ULA */
 
   NMI_generator=0;
+  nmi_pending=0;
   int_pending=0;
+  rowcounter=0;
   hsync_pending=0;
   VSYNC_state=HSYNC_state=0;
+  frames=0;
+  hsync_counter=0;
 
 #ifdef SZ81 /* Added by Thunor */
   if(sdl_emulator.autoload)
@@ -210,7 +213,6 @@ void mainloop()
   unsigned long ts;
   unsigned long tstore;
   unsigned char v=0;
-
   while(1)
   {
 #ifdef SZ81 /* Added by Thunor */
@@ -255,8 +257,8 @@ void mainloop()
     v=0;
     ts = 0;
     LastInstruction = LASTINSTNONE;
-    /* this *has* to be checked before radjust is incr'd */
-    if(intsample && !(radjust&64) && iff1)
+
+    if(intsample && !((radjust-1)&64) && iff1)
       int_pending=1;
 
     if(nmi_pending)
@@ -283,55 +285,54 @@ void mainloop()
 
       if(videodata && !(op&64))
       {
-        if (SYNC_signal)
-        {
-          v=0xff;
+        v=0xff;
 
-          if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
+        if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
+        {
+          int addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
+          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
           {
-            int addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
-            if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
-            {
-              v = font[addr-((op&128)?0x1C00:0x1E00)];
-            }
-            else
-            {
-              v = mem[addr];
-            }
+            v = font[addr-((op&128)?0x1C00:0x1E00)];
           }
           else
           {
-            int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
-            if (useWRX)
-            {
-              v = mem[addr];
-            }
+            v = mem[addr];
           }
-          v = (op&128)?~v:v;
         }
+        else
+        {
+          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
+          if (useWRX)
+          {
+            v = mem[addr];
+          }
+        }
+        v = (op&128)?~v:v;
         op=0; /* the CPU sees a nop */
       }
 
       tstore = tstates;
 
-ixiyloop:
-      pc++;
-      radjust++;
-      intsample=1;
-
-      switch(op)
+      do
       {
-#include "z80ops.c"
-      }
-
-      // Complete ix and iy instructions
-      if (new_ixoriy)
-      {
-        ixoriy=new_ixoriy;
+        pc++;
+        radjust++;
+        intsample=1;
         new_ixoriy=0;
-        op = fetchm(pc);
-        goto ixiyloop;
-      }
+
+        switch(op)
+        {
+#include "z80ops.c"
+        }
+
+        // Complete ix and iy instructions
+        if (new_ixoriy)
+        {
+          ixoriy=new_ixoriy;
+          op = fetchm(pc);
+        }
+      }  while (new_ixoriy);
+
       ixoriy = 0;
 
       ts = tstates - tstore;
@@ -379,7 +380,7 @@ ixiyloop:
           (RasterY >=ZX_VID_VGA_YOFS) &&
           (RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
     {
-      int k = dest + RasterX + 2;
+      int k = dest + RasterX + 2; // Add 2 to align lhs to byte boundary
       {
         int kh = k >> 3;
         int kl = k & 7;
@@ -396,7 +397,6 @@ ixiyloop:
       }
     }
 
-    const static int tstate_jump = 8; // Step up to 8 tstates at a time
     int tstate_inc;
     int states_remaining = ts;
     int since_hstart = 0;
@@ -541,7 +541,6 @@ static inline int z80_interrupt(void)
     if(fetchm(pc)==0x76)
     {
       pc++;
-      tinc=4;
     }
     iff1=iff2=0;
     push2(pc);
@@ -552,18 +551,18 @@ static inline int z80_interrupt(void)
       case 0: /* IM 0 */
       case 2: /* IM 1 */
         pc=0x38;
-        tinc+=13;
+        tinc=13;
       break;
       case 3: /* IM 2 */
       {
         int addr=fetch2((i<<8)|0xff);
         pc=addr;
-        tinc+=19;
+        tinc=19;
       }
       break;
 
       default:
-        tinc+=12;
+        tinc=12;
       break;
     }
   }
@@ -572,18 +571,16 @@ static inline int z80_interrupt(void)
 
 static inline int nmi_interrupt(void)
 {
-  int tinc=0;
   iff1=0;
   if(fetchm(pc)==0x76)
   {
     pc++;
-    tinc=4;
   }
   push2(pc);
   radjust++;
   pc=0x66;
 
-  return tinc+11;
+  return 11;
 }
 
 /* Normally, these sync checks are done by the TV :-) */
@@ -592,7 +589,10 @@ void checkhsync(int tolchk)
   if ( ( !tolchk && sync_len >= HSYNC_MINLEN && sync_len <= HSYNC_MAXLEN && RasterX>=HSYNC_TOLERANCEMIN ) ||
         (  tolchk &&                                                         RasterX>=HSYNC_TOLERANCEMAX ) )
   {
-    RasterX = (hsync_counter - HSYNC_END) << 1;
+    if (zx80)
+      RasterX = 0;
+    else
+      RasterX = (hsync_counter - HSYNC_END) < tstate_jump ? ((hsync_counter - HSYNC_END) << 1) : 0;
     RasterY++;
     dest += TVP;
   }
@@ -769,25 +769,22 @@ void vsync_lower(void)
   {
     int ny=RasterY;
 
-    /* we don't emulate this stuff by default; if nothing else,
-    * it can be fscking annoying when you're typing in a program.
-    */
+    // TO DO: Simplify when reduce mem buffer
+    if (vsy < ZX_VID_VGA_YOFS)
+      vsy = ZX_VID_VGA_YOFS;
+    else if (vsy >= (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS))
+      vsy = ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS - 1;
 
-    /* even when we do emulate it, we don't bother with x timing,
-    * just the y. It gives reasonable results without being too
-    * complicated, I think.
-    */
-    if(vsy>=ZX_VID_FULLHEIGHT)
-      vsy=ZX_VID_FULLHEIGHT-1;
-    if(ny>=ZX_VID_FULLHEIGHT)
-      ny=ZX_VID_FULLHEIGHT-1;
+    if (ny < ZX_VID_VGA_YOFS)
+      ny = ZX_VID_VGA_YOFS;
+    else if (ny >= (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS))
+      ny = ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS - 1;
 
-    /* XXX both of these could/should be made into single memset calls */
     if(ny<vsy)
     {
       /* must be wrapping around a frame edge; do bottom half */
-      memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*(ZX_VID_FULLHEIGHT-vsy));
-      vsy=0;
+      memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*((ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)-vsy));
+      vsy=ZX_VID_VGA_YOFS;
     }
     memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*(ny-vsy));
   }

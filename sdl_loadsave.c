@@ -700,7 +700,7 @@ int sdl_load_file(int parameter, int method) {
 							mem[sp + 3] = 0x3e;
 							/* Now override if RAM configuration changes things
 							 * (there's a possibility these changes are unimportant) */
-							if (sdl_emulator.ramsize >= 4) {
+							if (sdl_emulator.ramsize >= 4 && 0) {
 								d = 0x43; h = 0x43;
 								a1 = 0xec; b1 = 0x81; c1 = 0x02;
 								radjust = 0xa9;

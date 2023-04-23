@@ -501,7 +501,7 @@ void mainloop()
         ix=iy=sp=pc=0;
         tstates=radjust=0;
         RasterX = 0;
-        RasterY = 0;
+        RasterY = adjustStartY;
         dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
         psync = 1;
         sync_len = 0;
@@ -601,8 +601,8 @@ void checkvsync(int tolchk)
   if ( ( !tolchk && sync_len >= VSYNC_MINLEN && RasterY>=VSYNC_TOLERANCEMIN ) ||
         (  tolchk &&                             RasterY>=VSYNC_TOLERANCEMAX ) )
   {
-    RasterY = 0;
-    dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
+    RasterY = adjustStartY;
+    dest =  -(DISPLAY_WIDTH * (DISPLAY_START_Y-adjustStartY));
 
     if (sync_len>tsmax)
     {
@@ -664,6 +664,7 @@ unsigned int in(int h, int l)
 
   tapemask++;
   data |= (tapemask & 0x0100) ? 0x80 : 0;
+  if (useNTSC) data|=64;
 
   if (!(l&1))
   {
@@ -763,11 +764,10 @@ void vsync_lower(void)
 {
 //  if (!vsync_visuals)
 //    return;
-
   if ((RasterY < DISPLAY_END_Y) || (vsy < DISPLAY_END_Y))
   {
-    int ny=RasterY;
     int nx=RasterX;
+    int ny=RasterY;
 
     if (vsy < DISPLAY_START_Y)
       vsy = DISPLAY_START_Y;

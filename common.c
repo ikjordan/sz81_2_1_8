@@ -65,6 +65,13 @@ bool useWRX = true;
 bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
+#if 0
+bool useNTSC = true;
+int  adjustStartY=12;
+#else
+bool useNTSC = false;
+int  adjustStartY=-12;
+#endif
 
 #ifdef SZ81	/* Added by Thunor */
 int signal_int_flag=0;

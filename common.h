@@ -68,6 +68,8 @@ extern bool useWRX;
 extern bool useQSUDG;
 extern bool UDGEnabled;
 extern bool LowRAM;
+extern bool useNTSC;
+extern int  adjustStartY;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);

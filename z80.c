@@ -56,8 +56,7 @@ const static int tstate_jump = 8; // Step up to 8 tstates at a time
 
 static int RasterX = 0;
 static int RasterY = 0;
-static int TVP;
-static int dest;
+static int dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
 
 static int int_pending, nmi_pending, hsync_pending;
 
@@ -106,12 +105,13 @@ unsigned char partable[256]={
 unsigned long tstates=0,tsmax=65000,frames=0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
-unsigned char scrnbmp_new[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];  /* written */
-unsigned char scrnbmp[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];      /* displayed */
-unsigned char scrnbmp_old[ZX_VID_FULLWIDTH*ZX_VID_FULLHEIGHT/8];
+unsigned char scrnbmp_new[(DISPLAY_WIDTH>>3)*DISPLAY_HEIGHT];  /* written */
+unsigned char scrnbmp[(DISPLAY_WIDTH>>3)*DISPLAY_HEIGHT];      /* displayed */
+unsigned char scrnbmp_old[(DISPLAY_WIDTH>>3)*DISPLAY_HEIGHT];
         /* checked against for diffs */
 
 #ifdef SZ81 /* Added by Thunor. I need these to be visible to sdl_loadsave.c */
+int vsx=0;
 int vsy=0;
 #else
 static int liney=0, lineyi=0;
@@ -155,10 +155,9 @@ void mainloop()
 
   RasterX = 0;
   RasterY = 0;
-  dest = 0;
+  dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
   psync = 1;
   sync_len = 0;
-  TVP = ZX_VID_FULLWIDTH;
 
 /* ULA */
 
@@ -375,12 +374,12 @@ void mainloop()
 
     /* Plot data in shift register */
     if (v &&
-          (RasterX >= (ZX_VID_VGA_XOFS-2)) &&
-          (RasterX < (ZX_VID_VGA_WIDTH + ZX_VID_VGA_XOFS-2)) &&
-          (RasterY >=ZX_VID_VGA_YOFS) &&
-          (RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
+          (RasterX >= (DISPLAY_START_X - DISPLAY_PIXEL_OFF)) &&
+          (RasterX < (DISPLAY_END_X - DISPLAY_PIXEL_OFF)) &&
+          (RasterY >= DISPLAY_START_Y) &&
+          (RasterY < DISPLAY_END_Y))
     {
-      int k = dest + RasterX + 2; // Add 2 to align lhs to byte boundary
+      int k = dest + RasterX - (DISPLAY_START_X - DISPLAY_PIXEL_OFF); // DISPLAY_PIXEL_OFF to align lhs to byte boundary
       {
         int kh = k >> 3;
         int kl = k & 7;
@@ -503,10 +502,9 @@ void mainloop()
         tstates=radjust=0;
         RasterX = 0;
         RasterY = 0;
-        dest = 0;
+        dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
         psync = 1;
         sync_len = 0;
-        TVP = ZX_VID_FULLWIDTH;
 
 /* ULA */
 
@@ -594,7 +592,7 @@ void checkhsync(int tolchk)
     else
       RasterX = (hsync_counter - HSYNC_END) < tstate_jump ? ((hsync_counter - HSYNC_END) << 1) : 0;
     RasterY++;
-    dest += TVP;
+    dest += DISPLAY_WIDTH;
   }
 }
 
@@ -604,19 +602,19 @@ void checkvsync(int tolchk)
         (  tolchk &&                             RasterY>=VSYNC_TOLERANCEMAX ) )
   {
     RasterY = 0;
-    dest = 0;
+    dest = -(DISPLAY_WIDTH * DISPLAY_START_Y);
 
     if (sync_len>tsmax)
     {
       // If there has been no sync for an entire frame then blank the screen
-      memset(scrnbmp, 0xff, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+      memset(scrnbmp, 0xff, DISPLAY_HEIGHT * (DISPLAY_WIDTH  >> 3));
       sync_len = 0;
     }
     else
     {
       memcpy(scrnbmp,scrnbmp_new,sizeof(scrnbmp));
     }
-    memset(scrnbmp_new, 0x00, ZX_VID_FULLHEIGHT * ZX_VID_FULLWIDTH / 8);
+    memset(scrnbmp_new, 0x00, DISPLAY_HEIGHT * (DISPLAY_WIDTH >> 3));
   }
 }
 
@@ -756,36 +754,57 @@ unsigned int out(int h, int l,int a)
 void vsync_raise(void)
 {
   /* save current pos */
+  vsx=RasterX;
   vsy=RasterY;
 }
 
 /* for vsync on -> off */
 void vsync_lower(void)
 {
-  if (!vsync_visuals)
-    return;
+//  if (!vsync_visuals)
+//    return;
 
-  if ((RasterY < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)) || (vsy < (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)))
+  if ((RasterY < DISPLAY_END_Y) || (vsy < DISPLAY_END_Y))
   {
     int ny=RasterY;
+    int nx=RasterX;
 
-    // TO DO: Simplify when reduce mem buffer
-    if (vsy < ZX_VID_VGA_YOFS)
-      vsy = ZX_VID_VGA_YOFS;
-    else if (vsy >= (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS))
-      vsy = ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS - 1;
+    if (vsy < DISPLAY_START_Y)
+      vsy = DISPLAY_START_Y;
+    else if (vsy >= DISPLAY_END_Y)
+      vsy = DISPLAY_END_Y - 1;
 
-    if (ny < ZX_VID_VGA_YOFS)
-      ny = ZX_VID_VGA_YOFS;
-    else if (ny >= (ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS))
-      ny = ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS - 1;
+    if (ny < DISPLAY_START_Y)
+      ny = DISPLAY_START_Y;
+    else if (ny >= DISPLAY_END_Y)
+      ny = DISPLAY_END_Y - 1;
 
-    if(ny<vsy)
+    vsy -= DISPLAY_START_Y;
+    ny -= DISPLAY_START_Y;
+
+    if (vsy != ny)
     {
-      /* must be wrapping around a frame edge; do bottom half */
-      memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*((ZX_VID_VGA_HEIGHT + ZX_VID_VGA_YOFS)-vsy));
-      vsy=ZX_VID_VGA_YOFS;
+      if (vsx < DISPLAY_START_PIXEL)
+        vsx = DISPLAY_START_PIXEL;
+      else if (vsx >= DISPLAY_END_PIXEL)
+        vsx = DISPLAY_END_PIXEL - 1;
+
+      if (nx < DISPLAY_START_PIXEL)
+        nx = DISPLAY_START_PIXEL;
+      else if (nx >= DISPLAY_END_PIXEL)
+        nx = DISPLAY_END_PIXEL - 1;
+
+      vsx -= DISPLAY_START_Y;
+      nx -= DISPLAY_START_Y;
+
+      if(ny<vsy)
+      {
+        /* must be wrapping around a frame edge; do bottom half */
+        memset(scrnbmp_new+vsy*(DISPLAY_WIDTH>>3)+(vsx>>3), 0xff, (DISPLAY_WIDTH>>3)*(DISPLAY_HEIGHT-vsy)-(vsx>>3));
+        vsy=0;
+        vsx=0;
+      }
+      memset(scrnbmp_new+vsy*(DISPLAY_WIDTH>>3)+(vsx>>3),0xff,(DISPLAY_WIDTH>>3)*(ny-vsy)+((nx-vsx)>>3));
     }
-    memset(scrnbmp_new+vsy*(ZX_VID_FULLWIDTH>>3),0xff,(ZX_VID_FULLWIDTH>>3)*(ny-vsy));
   }
 }

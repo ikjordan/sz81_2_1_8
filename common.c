@@ -889,13 +889,13 @@ unsigned char *ptr,*optr;
 int y;
 
 ptr=helpscrn;
-optr=scrnbmp+fakedispy*ZX_VID_FULLWIDTH/8+fakedispx;
+optr=scrnbmp+fakedispy*DISPLAY_WIDTH/8+fakedispx;
 
 for(y=0;y<192;y++)
   {
   memcpy(optr,ptr,32);
   ptr+=32;
-  optr+=ZX_VID_FULLWIDTH/8;
+  optr+=DISPLAY_WIDTH/8;
   }
 }
 #endif
@@ -1245,10 +1245,10 @@ unsigned char *cptr=mem+0x1e00;
 unsigned char *ptr,*optr,*optrsav;
 int x,y,b,c,d,inv;
 
-memset(scrnbmp,0,ZX_VID_FULLHEIGHT*ZX_VID_FULLWIDTH/8);
+memset(scrnbmp,0,DISPLAY_HEIGHT*DISPLAY_WIDTH/8);
 
 ptr=scrn+1;
-optr=scrnbmp+fakedispy*ZX_VID_FULLWIDTH/8+fakedispx;
+optr=scrnbmp+fakedispy*DISPLAY_WIDTH/8+fakedispx;
 
 for(y=0;y<24;y++,ptr++)
   {
@@ -1258,16 +1258,16 @@ for(y=0;y<24;y++,ptr++)
     c=*ptr;
     inv=(c&128); c&=63;
     
-    for(b=0;b<8;b++,optr+=ZX_VID_FULLWIDTH/8)
+    for(b=0;b<8;b++,optr+=DISPLAY_WIDTH/8)
       {
       d=cptr[c*8+b];
       if(inv) d^=255;
       *optr=d;
       }
-    optr-=ZX_VID_FULLWIDTH;
+    optr-=DISPLAY_WIDTH;
     }
   
-  optr=optrsav+ZX_VID_FULLWIDTH;
+  optr=optrsav+DISPLAY_WIDTH;
   }
 }
 #endif

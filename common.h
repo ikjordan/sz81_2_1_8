@@ -25,53 +25,21 @@
  * NB: *everything* horizontal here must be exactly divisible by 8.
  */
 #include <stdbool.h>
-/* full internal image with overscan (but not hsync/vsync areas) */
-//#define ZX_VID_MARGIN		23
-//#define ZX_VID_HMARGIN		(8*8)
-//#define ZX_VID_FULLWIDTH	(2*ZX_VID_HMARGIN+32*8)	/* sic */
-//#define ZX_VID_FULLHEIGHT	(2*ZX_VID_MARGIN+192)
-#define ZX_VID_FULLWIDTH	400
-#define ZX_VID_FULLHEIGHT	300
 
-/* ahem :-) */
-//#define FUDGE_FACTOR		(3*8)
-
-/* X image */
-#if 0
-#if 0
-/* for testing QS Defender ;-) - I might want to add a
- * command-line option to show the whole overscan area
- * eventually...
- */
-#define ZX_VID_X_XOFS		0
-#define ZX_VID_X_YOFS		0
-#define ZX_VID_X_WIDTH		ZX_VID_FULLWIDTH
-#define ZX_VID_X_HEIGHT		ZX_VID_FULLHEIGHT
-#else
-#define ZX_VID_X_XOFS		(5*8-FUDGE_FACTOR)
-#define ZX_VID_X_YOFS		35
-#define ZX_VID_X_WIDTH		((32+3*2)*8)
-#define ZX_VID_X_HEIGHT		(192+20*2)
-#endif
-#endif
-
-/* svgalib image */
-#if 0
-#define ZX_VID_VGA_XOFS		(4*8-FUDGE_FACTOR)
-#define ZX_VID_VGA_YOFS		51
-#define ZX_VID_VGA_WIDTH	((32+4*2)*8)
-#define ZX_VID_VGA_HEIGHT	(192+4*2)
-#else
-#define ZX_VID_VGA_XOFS		48
-#define ZX_VID_VGA_YOFS		24
-#define ZX_VID_VGA_WIDTH	320
-#define ZX_VID_VGA_HEIGHT	240
-#endif
+#define DISPLAY_WIDTH       320
+#define DISPLAY_HEIGHT      240
+#define DISPLAY_START_X     48
+#define DISPLAY_START_Y     24
+#define DISPLAY_END_X       (DISPLAY_WIDTH + DISPLAY_START_X)
+#define DISPLAY_END_Y       (DISPLAY_HEIGHT + DISPLAY_START_Y)
+#define DISPLAY_PIXEL_OFF   2
+#define DISPLAY_START_PIXEL (DISPLAY_START_X - DISPLAY_PIXEL_OFF)
+#define DISPLAY_END_PIXEL   (DISPLAY_START_X - DISPLAY_PIXEL_OFF + DISPLAY_WIDTH)
 
 /* AY board types */
-#define AY_TYPE_NONE		0
-#define AY_TYPE_QUICKSILVA	1
-#define AY_TYPE_ZONX		2
+#define AY_TYPE_NONE        0
+#define AY_TYPE_QUICKSILVA  1
+#define AY_TYPE_ZONX        2
 
 
 extern unsigned char mem[];

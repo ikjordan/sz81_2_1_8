@@ -794,8 +794,8 @@ void vsync_lower(void)
       else if (nx >= DISPLAY_END_PIXEL)
         nx = DISPLAY_END_PIXEL - 1;
 
-      vsx -= DISPLAY_START_Y;
-      nx -= DISPLAY_START_Y;
+      vsx -= DISPLAY_START_PIXEL;
+      nx -= DISPLAY_START_PIXEL;
 
       if(ny<vsy)
       {

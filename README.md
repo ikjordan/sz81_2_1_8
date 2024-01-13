@@ -7,7 +7,5 @@ The EightyOne core has delivered excellent Hires graphics support into sz81. How
 
 The core code in sz81 version 2.3.x is too CPU intensive to run at 100% emulation speed on a very low specification MCU, such as the ARM M0+ based Raspberry Pi Pico.
 
-The core in version 2.1.8 will run at 100% speed on an overclocked Pi Pico. This repository is used to experiment with improving the Hires graphics support in the 2.1.8 core, whilst still being able to run at 100% emulation speed on a single core of an overclocked Raspberry Pi Pico.
-
-Note that the experiments are on branches, not main.
+The core in version 2.1.8 will run at 100% speed on an overclocked Pi Pico. This repository relects modifications and improvements to the code base, which were triggered by the generation of [picozx81](https://github.com/ikjordan/picozx81)
 

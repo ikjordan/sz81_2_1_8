@@ -29,7 +29,7 @@
 #define DISPLAY_WIDTH       320
 #define DISPLAY_HEIGHT      240
 #define DISPLAY_START_X     48
-#define DISPLAY_START_Y     24
+#define DISPLAY_START_Y     12
 #define DISPLAY_END_X       (DISPLAY_WIDTH + DISPLAY_START_X)
 #define DISPLAY_END_Y       (DISPLAY_HEIGHT + DISPLAY_START_Y)
 #define DISPLAY_PIXEL_OFF   2
@@ -41,6 +41,11 @@
 #define AY_TYPE_QUICKSILVA  1
 #define AY_TYPE_ZONX        2
 
+#define HIRESDISABLED   0
+#define HIRESWRX        1
+
+#define CHRGENSINCLAIR  0
+#define CHRGENCHR16     3
 
 extern unsigned char mem[];
 extern unsigned char *memptr[64];

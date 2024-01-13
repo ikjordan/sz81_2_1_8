@@ -66,6 +66,7 @@ static int VSYNC_state, HSYNC_state, SYNC_signal;
 static int psync, sync_len;
 static int rowcounter=0;
 static int hsync_counter=0;
+static bool rowcounter_hold = false;
 
 void checkhsync(int tolchk);
 void checkvsync(int tolchk);
@@ -212,6 +213,8 @@ void mainloop()
   unsigned long ts;
   unsigned long tstore;
   unsigned char v=0;
+
+
   while(1)
   {
 #ifdef SZ81 /* Added by Thunor */
@@ -317,22 +320,21 @@ void mainloop()
         pc++;
         radjust++;
         intsample=1;
-        new_ixoriy=0;
 
         switch(op)
         {
 #include "z80ops.c"
         }
+        ixoriy=0;
 
         // Complete ix and iy instructions
         if (new_ixoriy)
         {
           ixoriy=new_ixoriy;
+          new_ixoriy=0;
           op = fetchm(pc);
         }
-      }  while (new_ixoriy);
-
-      ixoriy = 0;
+      } while (ixoriy);
 
       ts = tstates - tstore;
       tstates = tstore;
@@ -437,9 +439,10 @@ void mainloop()
         HSYNC_state = 1;
         since_hstart = hsync_counter - HSYNC_START + 1;
 
-        if (VSYNC_state)
+        if (VSYNC_state || rowcounter_hold)
         {
           rowcounter = 0;
+          rowcounter_hold = false;
         } else
         {
           rowcounter++;
@@ -643,14 +646,18 @@ void checksync(int inc)
 
 void anyout()
 {
-  if (VSYNC_state) {
+  if (VSYNC_state)
+  {
     if (zx80)
-    {
-			VSYNC_state = 2; // will be reset by HSYNC circuitry
-    }
+      VSYNC_state = 2; // will be reset by HSYNC circuitry
     else
     {
       VSYNC_state = 0;
+      // A fairly arbitrary value selected after comparing with a "real" ZX81
+      if ((hsync_counter < HSYNC_START) || (hsync_counter >= 178) )
+      {
+        rowcounter_hold = true;
+      }
       vsync_lower();
     }
   }

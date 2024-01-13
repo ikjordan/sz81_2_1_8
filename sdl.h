@@ -26,6 +26,8 @@
  */
 
 /* Includes */
+#ifndef _SDL_H_
+#define _SDL_H_
 #include <SDL/SDL.h>
 
 /* Defines */
@@ -79,6 +81,9 @@ struct {
 	int xoffset;
 	int yoffset;
 	SDL_TimerID timer_id;
+	int m1not;
+	int wrx;
+	int chrgen;
 	int speed;		/* 10ms=200%, 20ms=100%, 30ms=66%, 40ms=50% */
 	int frameskip;	/* 0 to MAX_FRAMESKIP */
 	int *model;		/* Points to z81's zx80: 0=ZX81, 1=ZX80 */
@@ -135,5 +140,4 @@ int sdl_filetype_casecmp(char *filename, char *filetype);
 int sdl_load_file(int parameter, int method);
 int sdl_save_file(int parameter, int method);
 
-
-
+#endif

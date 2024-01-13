@@ -17,6 +17,7 @@
 
 /* Includes */
 #include "sdl_engine.h"
+#include "common.h"
 
 /* Defines */
 
@@ -81,6 +82,14 @@ int sdl_init(void) {
 	sdl_key_repeat.delay = KEY_REPEAT_DELAY;
 	sdl_key_repeat.interval = KEY_REPEAT_INTERVAL;
 	sdl_emulator.model = &zx80;		/* It's a lot easier to do this */
+	sdl_emulator.m1not = 0;
+#ifdef UDG_CHAR16
+	sdl_emulator.wrx = HIRESDISABLED;
+	sdl_emulator.chrgen = CHRGENCHR16;
+#else
+	sdl_emulator.wrx = HIRESWRX;
+	sdl_emulator.chrgen = CHRGENSINCLAIR;
+#endif
 	sdl_emulator.frameskip = 1;		/* Equivalent to z81's scrn_freq=2 */
 	sdl_emulator.ramsize = 16;		/* 16K is the default */
 	sdl_emulator.invert = 0;		/* Off is the default */
@@ -284,6 +293,10 @@ void sdl_component_executive(void) {
 	static int sdl_emulator_model = 0;
 	static int sdl_emulator_ramsize = 16;
 	static int sdl_emulator_invert = 0;
+	static int sdl_emulator_m1not = FALSE;
+	static int sdl_emulator_wrx = HIRESWRX;
+	static int sdl_emulator_chrgen = CHRGENSINCLAIR;
+
 	#ifdef OSS_SOUND_SUPPORT
 		static int sdl_sound_device = 0;
 		static int sdl_sound_stereo = 0;
@@ -346,6 +359,24 @@ void sdl_component_executive(void) {
 		sdl_emulator_ramsize = sdl_emulator.ramsize;
 		/* Reset the emulator */
 		emulator_reset();
+	}
+	/* Monitor M1NOT changes */
+	if (sdl_emulator_m1not != sdl_emulator.m1not) {
+		sdl_emulator_m1not = sdl_emulator.m1not;
+		/* Reset the emulator */
+		emulator_reset();
+	}
+
+	/* Monitor WRX changes */
+	if (sdl_emulator_wrx != sdl_emulator.wrx) {
+		sdl_emulator_wrx = sdl_emulator.wrx;
+		useWRX = (sdl_emulator_wrx != 0);
+	}
+
+	/* Monitor character generator changes */
+	if (sdl_emulator_chrgen != sdl_emulator.chrgen) {
+		sdl_emulator_chrgen = sdl_emulator.chrgen;
+		useQSUDG = (sdl_emulator_chrgen != CHRGENSINCLAIR);
 	}
 
 	#ifdef OSS_SOUND_SUPPORT

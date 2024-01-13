@@ -358,6 +358,11 @@ if (ramsize > 48)
   ramsize = 48;
   LowRAM = true;
 }
+else
+{
+  LowRAM = false;
+}
+useWRX = (sdl_emulator.wrx != HIRESDISABLED);
 useWRX = useWRX || (ramsize < 3);
 #else
 ramsize=16;
@@ -446,7 +451,9 @@ switch(ramsize)
         memptr[f]=mem+1024*f;
       }
   }
-
+  useQSUDG = (sdl_emulator.chrgen != CHRGENSINCLAIR);
+  m1not = (sdl_emulator.m1not != 0);
+  UDGEnabled = false;
 #endif
 
 if(zx80)
@@ -1551,7 +1558,6 @@ if(got_one && isdir) return(NULL);
 return(returned_filename);
 }
 #endif
-
 
 #ifdef SZ81	/* Added by Thunor */
 void common_reset(void)

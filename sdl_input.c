@@ -17,6 +17,7 @@
 
 /* Includes */
 #include "sdl_engine.h"
+#include "common.h"
 
 /* Defines */
 #define MAX_KEYSYMS (138 + 6)
@@ -2230,7 +2231,15 @@ void manage_runopts_input(void) {
 				}
 			}
 		} else if (id == SDLK_3 || id == SDLK_4) {
-			if (runtime_options[1].state) {
+			if (runtime_options[0].state) {
+					if (state == SDL_PRESSED) {
+						if (id == SDLK_3) {
+							runopts_emulator_m1not = 0;
+						} else {
+							runopts_emulator_m1not = 1;
+						}
+					}
+			} else if (runtime_options[1].state) {
 				#ifdef OSS_SOUND_SUPPORT
 					if (state == SDL_PRESSED) {
 						if (id == SDLK_3) {
@@ -2254,7 +2263,15 @@ void manage_runopts_input(void) {
 				}
 			}
 		} else if (id == SDLK_5 || id == SDLK_6) {
-			if (runtime_options[1].state) {
+			if (runtime_options[0].state) {
+				if (state == SDL_PRESSED) {
+					if (id == SDLK_5) {
+						runopts_emulator_wrx=HIRESDISABLED;
+					} else {
+						runopts_emulator_wrx=HIRESWRX;
+					}
+				}
+			} else if (runtime_options[1].state) {
 				#ifdef OSS_SOUND_SUPPORT
 					if (state == SDL_PRESSED) {
 						if (id == SDLK_5) {
@@ -2280,7 +2297,15 @@ void manage_runopts_input(void) {
 				}
 			}
 		} else if (id == SDLK_7 || id == SDLK_8) {
-			if (runtime_options[2].state) {
+			if (runtime_options[0].state) {
+				if (state == SDL_PRESSED) {
+					if (id == SDLK_7) {
+						runopts_emulator_chrgen=CHRGENSINCLAIR;
+					} else {
+						runopts_emulator_chrgen=CHRGENCHR16;
+					}
+				}
+			} else if (runtime_options[2].state) {
 				/* Background colour red < and > */
 				if (state == SDL_PRESSED) {
 					key_repeat_manager(KRM_FUNC_REPEAT, &event, COMP_RUNOPTS2 * id);
@@ -2771,7 +2796,8 @@ int runopts_is_a_reset_scheduled(void) {
 	int retval = FALSE;
 
 	if (runopts_emulator_model != *sdl_emulator.model || 
-		runopts_emulator_ramsize != sdl_emulator.ramsize) {
+		runopts_emulator_ramsize != sdl_emulator.ramsize ||
+		runopts_emulator_m1not != sdl_emulator.m1not) {
 		retval = TRUE;
 #ifdef OSS_SOUND_SUPPORT
 	} else if (runopts_sound_device != sdl_sound.device) {
@@ -2833,6 +2859,9 @@ void runopts_transit(int state) {
 		runopts_emulator_speed = sdl_emulator.speed;
 		runopts_emulator_model = *sdl_emulator.model;
 		runopts_emulator_ramsize = sdl_emulator.ramsize;
+		runopts_emulator_m1not = sdl_emulator.m1not;
+		runopts_emulator_wrx = sdl_emulator.wrx;
+		runopts_emulator_chrgen = sdl_emulator.chrgen;
 		runopts_emulator_frameskip = sdl_emulator.frameskip;
 		runopts_sound_device = sdl_sound.device;
 		runopts_sound_stereo = sdl_sound.stereo;
@@ -2869,7 +2898,25 @@ void runopts_transit(int state) {
 			 * manages emulator and component reinitialisation */
 			sdl_emulator.ramsize = runopts_emulator_ramsize;
 		}
-		#ifdef OSS_SOUND_SUPPORT
+		/* Update M1NOT */
+		if (runopts_emulator_m1not != sdl_emulator.m1not) {
+			/* The component executive monitors this variable and
+			 * manages emulator and component reinitialisation */
+			sdl_emulator.m1not = runopts_emulator_m1not;
+		}
+		/* Update WRX */
+		if (runopts_emulator_wrx != sdl_emulator.wrx) {
+			/* The component executive monitors this variable and
+			 * manages emulator and component reinitialisation */
+			sdl_emulator.wrx = runopts_emulator_wrx;
+		}
+		/* Update character generator */
+		if (runopts_emulator_chrgen != sdl_emulator.chrgen) {
+			/* The component executive monitors this variable and
+			 * manages emulator and component reinitialisation */
+			sdl_emulator.chrgen = runopts_emulator_chrgen;
+		}
+#ifdef OSS_SOUND_SUPPORT
 			/* Update the sound device */
 			if (runopts_sound_device != sdl_sound.device) {
 				/* The component executive monitors this variable and

@@ -40,15 +40,15 @@
    unsigned short addr;
    unsigned char op;
    if(ixoriy){
-      addr=(ixoriy==1?ix:iy)+(signed char)fetch(pc);
+      addr=(ixoriy==1?ix:iy)+(signed char)fetchm(pc);
       pc++;
       tstates+=8;
-      op=fetch(pc);
+      op=fetchm(pc);
       reg=op&7;
       op=(op&0xf8)|6;
    }
    else{
-      op=fetch(pc);
+      op=fetchm(pc);
       tstates+=4;
       radjust++;
       addr=hl;
@@ -130,7 +130,7 @@
       case 0x43: bit(n,e); break;
       case 0x44: bit(n,h); break;
       case 0x45: bit(n,l); break;
-      case 0x46: tstates+=4;val=fetch(addr);bit(n,val);store(addr,val);break;
+      case 0x46: tstates+=4;val=fetch(addr);bit(n,val);break;
       case 0x47: bit(n,a); break;
       case 0x80: res(n,b); break;
       case 0x81: res(n,c); break;

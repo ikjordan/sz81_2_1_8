@@ -20,7 +20,15 @@
 
 /* Defines */
 
-/* Variables */
+/* Now unused Variables */
+int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
+int liney=0;
+unsigned long linestart=0;
+int vsync_toggle=0,vsync_lasttoggle=0;
+unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
+int hsyncskip=0;
+int ulacharline=0;
+
 
 /* Function prototypes */
 char *strtoupper(char *original);
@@ -692,7 +700,7 @@ int sdl_load_file(int parameter, int method) {
 							mem[sp + 3] = 0x3e;
 							/* Now override if RAM configuration changes things
 							 * (there's a possibility these changes are unimportant) */
-							if (sdl_emulator.ramsize >= 4) {
+							if (sdl_emulator.ramsize >= 4 && 0) {
 								d = 0x43; h = 0x43;
 								a1 = 0xec; b1 = 0x81; c1 = 0x02;
 								radjust = 0xa9;

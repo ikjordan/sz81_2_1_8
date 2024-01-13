@@ -17,7 +17,7 @@
 
 /* Includes */
 #include "sdl_engine.h"
-
+#include "common.h"
 /* Defines */
 
 /* Variables */
@@ -27,6 +27,7 @@ unsigned char vga_graphmemory[800 * 600];
  * \x2 means to invert the colours.
  * \x80 to \x95 are Sinclair graphics characters.
  * \x96 to \x97 are up and down </> equivalents */
+#if 0 
 char *runtime_options_text0[24] = {
 	"\x2 Hardware Options           1/4 \x2",
 	"",
@@ -57,6 +58,38 @@ char *runtime_options_text0[24] = {
 	"",
 	"          Save    Exit   Next\x90\x2>\x2\x85"
 };
+#else
+char *runtime_options_text0[24] = {
+	"\x2 Hardware Options           1/4 \x2",
+	"",
+	"Machine Model:",
+	"",
+	"  (\x1 \x1) ZX80  (\x1 \x1) ZX81",
+	"",
+	"RAM Size \x90\x2<\x2\x85 \x1  K \x90\x2>\x2\x85",
+	"",
+	"M1NOT:",
+	"",
+	"  (\x1 \x1) No    (\x1 \x1) Yes",
+	"",
+	"Frameskip\x90\x2<\x2\x85   \x1  \x90\x2>\x2\x85",
+	"",
+#ifdef ENABLE_EMULATION_SPEED_ADJUST
+	"Emu Speed\x90\x2<\x2\x85\x1    %\x90\x2>\x2\x85",
+#else
+	"",
+#endif
+	"",
+	"WRX:",
+	"  (\x1 \x1) No    (\x1 \x1) Yes",
+	"UDG:",
+	"  (\x1 \x1) No    (\x1 \x1) Yes",
+	"",
+	"\x1 ",
+	"",
+	"          Save    Exit   Next\x90\x2>\x2\x85"
+};
+#endif
 
 char *runtime_options_text1[24] = {
 	"\x2 Sound Options              2/4 \x2",
@@ -768,18 +801,53 @@ void sdl_video_update(void) {
 							}
 						} else if (count == 4) {
 							sprintf(text, "%2i", runopts_emulator_ramsize);
-						} else if (count == 5) {
+						} else if (count >= 5 && count <= 8) {
+							if (count == 5 || count == 7) strcpy(text, "O");
+							if ((count <= 6 && !runopts_emulator_m1not) || 
+								(count >= 7 && runopts_emulator_m1not)) {
+								/* Invert the colours */
+								invertcolours = !invertcolours;
+							}
+						} else if (count == 9) {
 							sprintf(text, "%1i", sdl_emulator.frameskip);
 					#ifdef ENABLE_EMULATION_SPEED_ADJUST
-						} else if (count == 6) {
-							sprintf(text, "%3i", 2000 / runopts_emulator_speed);
-						} else if (count == 7) {
+						} else if (count == 10) {
+							sprintf(text, "%4i", 2000 / runopts_emulator_speed);
+						} else if (count == 19) {
 					#else
-						} else if (count == 6) {
+						} else if (count == 18) {
+					#endif
 							if (runopts_is_a_reset_scheduled())
 								strcpy(text, "* A reset is scheduled on save *");
-					#endif
 						}
+// WRX and UDG
+					#ifdef ENABLE_EMULATION_SPEED_ADJUST
+						if (count >= 11 && count<=18) {
+							if (count >= 11 && count <= 12 && runopts_emulator_wrx != HIRESWRX)
+								invertcolours = !invertcolours;
+							if (count >= 13 && count <= 14 && runopts_emulator_wrx == HIRESWRX)
+								invertcolours = !invertcolours;
+							if (count >= 15 && count <= 16 && runopts_emulator_chrgen!=CHRGENCHR16 )
+								invertcolours = !invertcolours;
+							if (count >= 17 && count <=18 && runopts_emulator_chrgen==CHRGENCHR16 )
+								invertcolours = !invertcolours;
+							if (count==11 || count==13 || count==15 || count==17)
+								strcpy(text, "O");
+						}
+					#else
+						if (count >= 10 && count<=17) {
+							if (count >= 10 && count <= 11 && runopts_emulator_wrx != HIRESWRX)
+								invertcolours = !invertcolours;
+							if (count >= 12 && count <= 13 && runopts_emulator_wrx == HIRESWRX)
+								invertcolours = !invertcolours;
+							if (count >= 14 && count <= 15 && runopts_emulator_chrgen!=CHRGENCHR16 )
+								invertcolours = !invertcolours;
+							if (count >= 16 && count <=17 && runopts_emulator_chrgen==CHRGENCHR16 )
+								invertcolours = !invertcolours;
+							if (count==10 || count==12 || count==14 || count==16)
+								strcpy(text, "O");
+						}
+					#endif
 					} else if (runtime_options[1].state) {
 						/* The colour inversion here is conditional and so there are
 						 * two \x1's embedded within the text. The first \x1 will

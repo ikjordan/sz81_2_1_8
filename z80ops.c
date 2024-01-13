@@ -23,7 +23,7 @@
                                 if(ixoriy==0)addr=hl; \
                                 else tstates+=morecycles, \
                                    addr=(ixoriy==1?ix:iy)+ \
-                                        (signed char)fetch(pc),\
+                                        (signed char)fetchm(pc),\
                                    pc++
 #define endinstr             }; break
 
@@ -1123,7 +1123,7 @@ endinstr;
 
 instr(0xdd,4);
    new_ixoriy=1;
-   intsample=0;
+   //intsample=0;
 endinstr;
 
 instr(0xde,7);
@@ -1290,7 +1290,7 @@ endinstr;
 
 instr(0xfd,4);
    new_ixoriy=2;
-   intsample=0;
+   //intsample=0;
 endinstr;
 
 instr(0xfe,7);

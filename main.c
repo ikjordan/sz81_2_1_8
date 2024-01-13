@@ -31,7 +31,7 @@
 
 
 
-int hsize=ZX_VID_VGA_WIDTH,vsize=ZX_VID_VGA_HEIGHT;
+int hsize=DISPLAY_WIDTH,vsize=DISPLAY_HEIGHT;
 unsigned char *vptr;
 
 
@@ -53,11 +53,11 @@ void update_scrn(void)
 int x,y,a,mask;
 unsigned char *ptr,*optr,d;
 
-for(y=0;y<ZX_VID_VGA_HEIGHT;y++)
+for(y=0;y<DISPLAY_HEIGHT;y++)
   {
-  ptr=scrnbmp+(y+ZX_VID_VGA_YOFS)*ZX_VID_FULLWIDTH/8+ZX_VID_VGA_XOFS/8;
+  ptr=scrnbmp+(y+DISPLAY_START_Y)*DISPLAY_WIDTH/8+DISPLAY_START_X/8;
   optr=scrnbmp_old+(ptr-scrnbmp);
-  for(x=0;x<ZX_VID_VGA_WIDTH;x+=8,ptr++,optr++)
+  for(x=0;x<DISPLAY_WIDTH;x+=8,ptr++,optr++)
     {
     d=*ptr;
     
@@ -72,7 +72,7 @@ for(y=0;y<ZX_VID_VGA_HEIGHT;y++)
   }
 
 /* now, copy new to old for next time */
-memcpy(scrnbmp_old,scrnbmp,ZX_VID_FULLHEIGHT*ZX_VID_FULLWIDTH/8);
+memcpy(scrnbmp_old,scrnbmp,DISPLAY_HEIGHT*DISPLAY_WIDTH/8);
 
 refresh_screen=0;
 }

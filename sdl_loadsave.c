@@ -91,7 +91,7 @@ int save_state_dialog_slots_populate(void) {
 		save_state_dialog.slots[count] = 0;
 
 	/* Build a path to the currently loaded program's save state folder */
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(foldername, LOCAL_DATA_DIR);
 	#else
 		strcpy(foldername, getenv ("HOME"));
@@ -260,7 +260,7 @@ int sdl_save_file(int parameter, int method) {
 		}
 	} else if (method == SAVE_FILE_METHOD_STATESAVE) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 			strcpy(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
@@ -496,7 +496,7 @@ int sdl_load_file(int parameter, int method) {
 		}
 	} else if (method == LOAD_FILE_METHOD_STATELOAD) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 			strcpy(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
@@ -698,9 +698,9 @@ int sdl_load_file(int parameter, int method) {
 							mem[sp + 1] = 0x06;
 							mem[sp + 2] = 0x00;
 							mem[sp + 3] = 0x3e;
-							/* Now override if RAM configuration changes things
-							 * (there's a possibility these changes are unimportant) */
-							if (sdl_emulator.ramsize >= 4 && 0) {
+							/* Now override if RAM configuration changes things,
+							   without these changes Multi-scroll sometimes fail to start */
+							if (sdl_emulator.ramsize >= 4) {
 								d = 0x43; h = 0x43;
 								a1 = 0xec; b1 = 0x81; c1 = 0x02;
 								radjust = 0xa9;
@@ -717,7 +717,6 @@ int sdl_load_file(int parameter, int method) {
 							mem[0x4008] = 0xff;				/* PPC hi */
 						}
 					}
-
 					/* Read in up to 48K of data */
 					if (sdl_emulator.ramsize > 48) {
 						ramsize = 48;

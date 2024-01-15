@@ -22,7 +22,7 @@
 /* Local resources */
 #if defined(__amigaos4__)
 	#define LOCAL_DATA_DIR amiga_data_dir
-#elif defined(PLATFORM_GP2X) || defined(_WIN32)
+#elif defined(PLATFORM_GP2X) || defined(_WIN32) || defined (PLATFORM_RISCOS) || defined(PLATFORM_RISCOS)
 	#define LOCAL_DATA_DIR "local"
 #else
 	#define LOCAL_DATA_DIR ".sz81"
@@ -30,7 +30,7 @@
 #if defined(_WIN32)
 	#define RESOURCE_FILE "sz81.ini"
 #else
-	#define RESOURCE_FILE "sz81rc_explore"	// To allow multiple instances
+	#define RESOURCE_FILE "sz81rc_218"	// To allow multiple instances
 #endif
 #define LOCAL_PRTOUT_DIR "prtout"
 #define LOCAL_SAVSTA_DIR "savsta"

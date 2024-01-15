@@ -25,16 +25,35 @@
  * NB: *everything* horizontal here must be exactly divisible by 8.
  */
 #include <stdbool.h>
+#include <stdint.h>
 
 #define DISPLAY_WIDTH       320
 #define DISPLAY_HEIGHT      240
-#define DISPLAY_START_X     48
-#define DISPLAY_START_Y     12
+#define DISPLAY_START_X     46
+#define DISPLAY_START_Y     24
 #define DISPLAY_END_X       (DISPLAY_WIDTH + DISPLAY_START_X)
 #define DISPLAY_END_Y       (DISPLAY_HEIGHT + DISPLAY_START_Y)
-#define DISPLAY_PIXEL_OFF   2
+#define DISPLAY_PIXEL_OFF   4
 #define DISPLAY_START_PIXEL (DISPLAY_START_X - DISPLAY_PIXEL_OFF)
 #define DISPLAY_END_PIXEL   (DISPLAY_START_X - DISPLAY_PIXEL_OFF + DISPLAY_WIDTH)
+#define DISPLAY_PADDING     1
+
+typedef struct
+{
+    uint16_t width;         // width of screen in pixels
+    uint16_t height;        // Height of screen in pixels
+    uint16_t length;        // Size of buffer, including padding
+    uint16_t stride_bit;    // bits in one line including padding
+    uint16_t stride_byte;   // bytes in one line including padding
+    uint16_t start_x;       // X Offset in bits to first pixel to display, without centring
+    uint16_t end_x;         // X Offset in bits to last pixel to display, without centring
+    uint16_t start_y;       // Y Offset in lines to first line to display
+    uint16_t end_y;         // Y Offset in lines to last line to display
+    int16_t  adjust_x;      // Pixels to adjust in X dimension to centre the display
+    int16_t  offset;        // Offset in bits to convert from raster to display coords
+} Display_T;
+
+extern Display_T disp;
 
 /* AY board types */
 #define AY_TYPE_NONE        0
@@ -74,6 +93,7 @@ extern bool useQSUDG;
 extern bool UDGEnabled;
 extern bool LowRAM;
 extern bool useNTSC;
+extern int  adjustStartX;
 extern int  adjustStartY;
 
 #ifndef SZ81	/* Added by Thunor */
@@ -98,6 +118,7 @@ extern void do_interrupt();
 extern void frame_pause(void);
 #ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
+void initdisplay(void);
 #endif
 
 

@@ -65,12 +65,13 @@ bool useWRX = true;
 bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
-#if 0
+int adjustStartY = 0;
+int adjustStartX = 0;
+
+#ifdef USE_NTSC
 bool useNTSC = true;
-int  adjustStartY=12;
 #else
 bool useNTSC = false;
-int  adjustStartY=-12;
 #endif
 
 #ifdef SZ81	/* Added by Thunor */
@@ -318,6 +319,29 @@ if(load_hook)
   }
 }
 
+#ifdef SZ81
+Display_T disp;
+//#define CENTRE
+void initdisplay(void)
+{
+    disp.width = DISPLAY_WIDTH;
+    disp.height = DISPLAY_HEIGHT;
+    disp.stride_bit = (DISPLAY_PADDING << 3) + DISPLAY_WIDTH;
+    disp.stride_byte = disp.stride_bit >> 3;
+    disp.length = disp.stride_byte * disp.height;
+    disp.start_x = DISPLAY_START_X;
+    disp.end_x = disp.start_x + disp.width;
+    disp.start_y = DISPLAY_START_Y;
+    disp.end_y = disp.height + disp.start_y;
+    disp.adjust_x = DISPLAY_PIXEL_OFF;
+    disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
+
+#ifdef CENTRE
+      adjustStartX = DISPLAY_PIXEL_OFF;
+      adjustStartY = (useNTSC) ? (DISPLAY_START_Y >> 1) : -(DISPLAY_START_Y >> 1);
+#endif
+}
+#endif
 
 void initmem()
 {

@@ -1637,7 +1637,7 @@ void save_screenshot(void) {
 	char fullpath[256], filename[256];
 	int nextnum;
 
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(fullpath, LOCAL_DATA_DIR);
 	#else
 		strcpy(fullpath, getenv ("HOME"));

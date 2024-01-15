@@ -45,31 +45,35 @@ unsigned char *vptr;
 /* redraw the screen */
 
 void update_scrn(void) {
-	unsigned char *ptr, *optr, d;
-	int x, y, a, mask;
+	int x, y, a;
+	unsigned char mask, d;
+
+	unsigned char* ptr = scrnbmp;
+	unsigned char* optr = scrnbmp_old;
+	int line = 0;
 
 	for (y = 0; y < DISPLAY_HEIGHT; y++)
 	{
-		ptr = scrnbmp + y * (DISPLAY_WIDTH>>3);
-		optr = scrnbmp_old + (ptr - scrnbmp);
 		for (x = 0; x < DISPLAY_WIDTH; x += 8, ptr++, optr++)
 		{
 			d = *ptr;
-			if (d != *optr || refresh_screen)
+			if ((d != *optr) || refresh_screen)
 			{
 				if (sdl_emulator.invert)
-					d = ~d;
-				for (a = 0, mask = 128; a < 8; a++, mask >>= 1)
-					vptr[y * 320 + x + a] = ((d & mask)?0:15);
+		            d = ~d;
+				for (a = 0, mask = 0x80; a < 8; a++, mask >>= 1)
+					vptr[line + x + a] = ((d & mask)?0:15);
 			}
 		}
+		line += DISPLAY_WIDTH;
+		ptr += DISPLAY_PADDING;
+		optr += DISPLAY_PADDING;
 	}
 
 	/* now, copy new to old for next time */
-	memcpy(scrnbmp_old, scrnbmp, DISPLAY_HEIGHT * DISPLAY_WIDTH / 8);
+	memcpy(scrnbmp_old, scrnbmp, disp.length);
 
 	refresh_screen = 0;
-
 	sdl_video_update();
 }
 
@@ -174,6 +178,20 @@ int main(int argc, char *argv[]) {
 	#ifdef __amigaos4__
 		amiga_open_libs();
 	#endif
+
+	#ifdef PLATFORM_RISCOS
+	if (argc)
+	{
+		char cwd[256];
+		strcpy(cwd, argv[0]);
+		char* p = strrchr(cwd,'/');
+		if (p) *(p)=0;
+		chdir(cwd);
+	}
+	#endif
+
+	/* Initialise display storage */
+	initdisplay();
 
 	/* Initialise sz81 variables, SDL, WM icon, local data dir */
 	retval = sdl_init();

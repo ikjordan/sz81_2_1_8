@@ -44,7 +44,7 @@ void clean_up_before_exit(void);
 
 int sdl_init(void) {
 	int count;
-	#if defined(PLATFORM_GP2X)
+	#if defined(PLATFORM_GP2X) || defined(PLATFORM_RISCOS)
 	#elif defined(PLATFORM_ZAURUS)
 	#else
 		char filename[256];
@@ -95,6 +95,8 @@ int sdl_init(void) {
 	sdl_emulator.invert = 0;		/* Off is the default */
 	#if defined(PLATFORM_GP2X)
 		sdl_sound.volume = 30;
+	#elif defined(PLATFORM_RISCOS)
+		sdl_sound.volume = 20;
 	#else
 		sdl_sound.volume = 128;
 	#endif
@@ -175,6 +177,8 @@ int sdl_init(void) {
 	 * setting a video mode as per SDL docs instructions */
 	#if defined(PLATFORM_GP2X)
 	#elif defined(PLATFORM_ZAURUS)
+	#elif defined(PLATFORM_RISCOS)
+		SDL_WM_SetCaption("sz81 2.1.8a", "sz81");
 	#else
 		strcpy(filename, PACKAGE_DATA_DIR);
 		strcatdelimiter(filename);

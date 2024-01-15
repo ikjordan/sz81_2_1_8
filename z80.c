@@ -548,7 +548,7 @@ if (autoload)
           ix = iy = sp = pc = 0;
           tstates = radjust = 0;
           RasterX = 0;
-          RasterY = adjustStartY;
+          RasterY = 0;
           dest = disp.offset + (adjustStartY * disp.stride_bit) + adjustStartX;
           psync = 1;
           sync_len = 0;
@@ -819,8 +819,8 @@ if (autoload)
 static void vsync_raise(void)
 {
   /* save current pos - in screen coords*/
-  vsx=RasterX - (disp.start_x - adjustStartX);
-  vsy=RasterY - (disp.start_y - adjustStartY);
+  vsx = RasterX - (disp.start_x - adjustStartX);
+  vsy = RasterY - (disp.start_y - adjustStartY);
 }
 
 /* for vsync on -> off */

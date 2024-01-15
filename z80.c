@@ -33,26 +33,34 @@
 #define LASTINSTOUTFD 3
 #define LASTINSTOUTFF 4
 
-#define HTOLMIN 414 - 30
-#define HTOLMAX 414 + 30
-#define VTOLMIN 310 - 100
-#define VTOLMAX 310 + 100
-#define HMIN 8
-#define HMAX 32
-#define VMIN 170
+// Horizontal line timings
+#define HLENGTH       207 // TStates in horizontal scanline
 
-const static int HSYNC_TOLERANCEMIN = HTOLMIN;
-const static int HSYNC_TOLERANCEMAX = HTOLMAX;
-const static int VSYNC_TOLERANCEMIN = VTOLMIN;
-const static int VSYNC_TOLERANCEMAX = VTOLMAX;
-const static int HSYNC_MINLEN = HMIN;
-const static int HSYNC_MAXLEN = HMAX;
-const static int VSYNC_MINLEN = VMIN;
+// TV Emulation
+#define SCAN50  310       // Number of scanline per frame at 50Hz
+#define SCAN60  262       // Number of scanline per frame at 60Hz
+#define HSCAN   (2*HLENGTH)
+#define HTOL    30        // Tolerance in detection of horizontal sync
 
-const static int HSYNC_START = 16;
-const static int HSYNC_END = 32;
-const static int HLEN = 207;
-const static int tstate_jump = 8; // Step up to 8 tstates at a time
+#define VMIN    170
+#define HMIN    8
+#define HMAX    32
+
+static const int HSYNC_TOLERANCEMIN = HSCAN - HTOL;
+static const int HSYNC_TOLERANCEMAX = HSCAN + HTOL;
+
+static const int HSYNC_MINLEN = HMIN;
+static const int HSYNC_MAXLEN = HMAX;
+static const int VSYNC_MINLEN = VMIN;
+
+static int VSYNC_TOLERANCEMIN = SCAN50 - 100;
+static int VSYNC_TOLERANCEMAX = SCAN50 + 100;
+
+static const int HSYNC_START = 16;
+static const int HSYNC_END = 32;
+static const int HLEN = HLENGTH;
+
+static const int tstate_jump = 8; // Step up to 8 tstates at a time
 
 static int RasterX = 0;
 static int RasterY = 0;
@@ -74,6 +82,7 @@ static void checksync(int inc);
 static void anyout();
 static void vsync_raise(void);
 static void vsync_lower(void);
+static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
 
 extern int printer_inout(int is_out, int val);
 
@@ -126,6 +135,22 @@ int ay_reg = 0;
 static inline int z80_interrupt(void);
 static inline int nmi_interrupt(void);
 
+static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
+{
+  // This can look confusing as we have an emulated display, and a real
+  // display, both can be at either 50 or 60 Hz
+  if (fiftyHz)
+  {
+    VSYNC_TOLERANCEMIN = SCAN50 - vtol;
+    VSYNC_TOLERANCEMAX = SCAN50 + vtol;
+  }
+  else
+  {
+    VSYNC_TOLERANCEMIN = SCAN60 - vtol;
+    VSYNC_TOLERANCEMAX = SCAN60 + vtol;
+  }
+}
+
 #ifndef SZ81 /* Added by Thunor. I need these to be visible to sdl_loadsave.c */
 void mainloop()
 {
@@ -140,6 +165,7 @@ void mainloop()
   unsigned char op;
   // int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
   int framewait = 0;
+  bool chr128 = false;
 
 #ifdef SZ81 /* Added by Thunor */
   void mainloop()
@@ -170,6 +196,7 @@ void mainloop()
     VSYNC_state = HSYNC_state = 0;
     frames = 0;
     hsync_counter = 0;
+    setEmulatedTV(!useNTSC, 30);
 
 #ifdef SZ81 /* Added by Thunor */
     if (sdl_emulator.autoload)
@@ -284,8 +311,8 @@ if (autoload)
       else if (int_pending)
       {
         ts = z80_interrupt();
-        hsync_counter = -2; /* INT ACK after two tstates */
-        hsync_pending = 1;  /* a HSYNC may be started */
+        hsync_counter = -2;             /* INT ACK after two tstates */
+        hsync_pending = 1;              /* a HSYNC may be started */
       }
       else
       {
@@ -307,7 +334,12 @@ if (autoload)
 
           if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
           {
-            int addr = ((i & 0xfe) << 8) | ((op & 63) << 3) | rowcounter;
+            int addr;
+            if (chr128 && i > 0x20 && i & 1)
+              addr = ((i & 0xfe) << 8) | ((((op & 128)>>1) | (op & 63)) << 3) | rowcounter;
+            else
+              addr = ((i & 0xfe) << 8) | ((op & 63) << 3) | rowcounter;
+
             if (UDGEnabled && addr >= 0x1E00 && addr < 0x2000)
             {
               v = font[addr - ((op & 128) ? 0x1C00 : 0x1E00)];
@@ -328,7 +360,6 @@ if (autoload)
           v = (op & 128) ? ~v : v;
           op = 0; /* the CPU sees a nop */
         }
-
         tstore = tstates;
 
         do
@@ -361,39 +392,34 @@ if (autoload)
 
       switch (LastInstruction)
       {
-      case LASTINSTOUTFD:
-        NMI_generator = nmi_pending = 0;
-        anyout();
+        case LASTINSTOUTFD:
+          NMI_generator = nmi_pending = 0;
+          anyout();
         break;
-      case LASTINSTOUTFE:
-        if (!zx80)
-        {
-          NMI_generator = 1;
-        }
-        anyout();
-        break;
-      case LASTINSTINFE:
-        if (!NMI_generator)
-        {
-          if (VSYNC_state == 0)
+        case LASTINSTOUTFE:
+          if (!zx80)
           {
-            VSYNC_state = 1;
-            vsync_raise();
+            NMI_generator = 1;
           }
-        }
+          anyout();
         break;
-      case LASTINSTOUTFF:
-        anyout();
-        if (zx80)
-          hsync_pending = 1;
+        case LASTINSTINFE:
+          if (!NMI_generator)
+          {
+            if (VSYNC_state == 0)
+            {
+              VSYNC_state = 1;
+              vsync_raise();
+            }
+          }
         break;
-      default:
+        case LASTINSTOUTFF:
+          anyout();
+          if (zx80) hsync_pending = 1;
         break;
       }
-      //v = (RasterY % 2) ? 255 : 0;
-      /* Plot data in shift register */
       if (v &&
-          (RasterX >= (disp.start_x - DISPLAY_PIXEL_OFF + adjustStartX)) &&
+          (RasterX >= (disp.start_x - disp.adjust_x + adjustStartX)) &&
           (RasterX < (disp.end_x - adjustStartX)) &&
           (RasterY >= (disp.start_y - adjustStartY)) &&
           (RasterY < (disp.end_y - adjustStartY)))

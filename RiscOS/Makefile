@@ -1,16 +1,10 @@
-# Comment/uncomment these to choose an installation destination
-# System wide installation
-#PREFIX?=/usr/local
-#BINDIR?=$(PREFIX)/bin
-#DOCDIR?=$(PREFIX)/share/doc/$(TARGET)
-#PACKAGE_DATA_DIR?=$(PREFIX)/share/$(TARGET)
+# May need to increase cc heap
+# *SetEval cc1$HeapMax 128
 
-# Local installation within your home folder
-#PREFIX?=$(HOME)/Games/$(TARGET)
-#BINDIR?=$(PREFIX)
-#DOCDIR?=$(PREFIX)/doc
-#PACKAGE_DATA_DIR?=$(PREFIX)/data
+# To convert to correct format use
+# *elf2aif sz81
 
+# SDL libs and includes assumed to be in SDL under install dir
 # Run from current folder i.e. no installation
 PREFIX?=.
 BINDIR?=$(PREFIX)
@@ -31,16 +25,11 @@ OBJECT3=sound.o z80.o sdl_sound.o sdl_video.o common.o sdl_main.o sdl_engine.o
 OBJECTS=$(OBJECT1) $(OBJECT3)
 
 VERSION=2_1_8a
-CC=gcc
+CC=gcc -static
 
 # These should be ok for most.
-# For debugging/profiling uncomment the following two lines:
-#CFLAGS=-O0 -g -pg
-#LDFLAGS=-pg
-#CFLAGS=-O0 -g
 CFLAGS+=-Wall -Wno-unused-result -ISDL -DVERSION=\"$(VERSION)\" -DENABLE_EMULATION_SPEED_ADJUST \
 	-DPLATFORM_RISCOS -DPACKAGE_DATA_DIR=\"$(PACKAGE_DATA_DIR)\" $(SOUNDDEF) -DSZ81 -D_DZ80_EXCLUDE_SCRIPT
-#CFLAGS+=-O1
 
 LINK=$(CC)
 LDFLAGS=
@@ -60,16 +49,6 @@ $(OBJECTS): %.o: %.c
 
 .PHONY: all clean install
 
-open%:
-	-@if [ -n "`which pasmo 2> /dev/null`" ]; then \
-		pasmo -v open8x/$@.asm open8x/$@.rom; \
-		if [ -f open8x/$@.rom -a ! -e data/zx$*.rom ]; then \
-			cp open8x/$@.rom data/zx$*.rom; \
-		fi \
-	else \
-		echo "The Pasmo cross-assembler was not found: skipping $@"; \
-	fi
-
 clean:
-	rm -f *.o *~
+	${RM} $(OBJECT1) $(OBJECT3)  sz81
 

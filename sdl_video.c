@@ -312,9 +312,12 @@ unsigned char *vga_getgraphmem(void) {
  * hotspots will require overlaying */
 
 void sdl_video_update(void) {
-	Uint32 colourRGB, fg_colourRGB, bg_colourRGB, colour0RGB, colour1RGB;
-	int srcx, srcy, desx, desy, srcw, count, offset, invertcolours;
-	Uint32 fg_colour, bg_colour, *screen_pixels_32;
+	static bool first = true;
+	static Uint32 fg_colourRGB, bg_colourRGB, colour0RGB, colour1RGB;
+	static Uint32 fg_colour, bg_colour;
+	int srcx, srcy, desx, desy, count, offset, invertcolours;
+	Uint32 *screen_pixels_32;
+	Uint32 colourRGB;
 	int xpos, ypos, xmask, ybyte;
 	SDL_Surface *renderedtext;
 	Uint16 *screen_pixels_16;
@@ -339,25 +342,28 @@ void sdl_video_update(void) {
 	/* Monitor and manage component states */
 	sdl_component_executive();
 
-	/* Prepare the colours we shall be using (these remain unchanged throughout) */
-	if (!sdl_emulator.invert) {
-		fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
-			colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
-		bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
-			colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
-		colour0RGB = fg_colourRGB;
-		colour1RGB = bg_colourRGB;
-		fg_colour = colours.emu_fg;
-		bg_colour = colours.emu_bg;
-	} else {
-		fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
-			colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
-		bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
-			colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
-		colour0RGB = bg_colourRGB;
-		colour1RGB = fg_colourRGB;
-		fg_colour = colours.emu_bg;
-		bg_colour = colours.emu_fg;
+	if (first)
+	{
+		/* Prepare the colours we shall be using (these remain unchanged throughout) */
+		if (!sdl_emulator.invert) {
+			fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
+				colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
+			bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
+				colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
+			colour0RGB = fg_colourRGB;
+			colour1RGB = bg_colourRGB;
+			fg_colour = colours.emu_fg;
+			bg_colour = colours.emu_bg;
+		} else {
+			fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
+				colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
+			bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
+				colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
+			colour0RGB = bg_colourRGB;
+			colour1RGB = fg_colourRGB;
+			fg_colour = colours.emu_bg;
+			bg_colour = colours.emu_fg;
+		}
 	}
 
 	/* Should everything be redrawn? */
@@ -376,73 +382,118 @@ void sdl_video_update(void) {
 	}
 
 	/* Is the emulator's output being rendered? */
-	if (sdl_emulator.state) {
+	if (sdl_emulator.state) 
+	{
+		unsigned char* pvga = vga_graphmemory;
+		int offset = 0;
+
 		if (SDL_MUSTLOCK(video.screen)) SDL_LockSurface(video.screen);
 
-		screen_pixels_16 = video.screen->pixels;
-		screen_pixels_32 = video.screen->pixels;
+		if (video.screen->format->BitsPerPixel == 16)
+		{
+			screen_pixels_16 = video.screen->pixels;
 
-		/* Set-up destination y coordinates */
-		desy = sdl_emulator.yoffset;
-
-		for (srcy = 0; srcy < 240; srcy++) {
-
-			/* [Re]set-up x coordinates and src width */
-			if (video.xres < 320 * video.scale) {
-				srcx = abs(sdl_emulator.xoffset / video.scale);
-				if (*sdl_emulator.model == MODEL_ZX80 && video.xres < 256 * video.scale)
-					srcx += 8 * 2;	/* The emulator shifts it right 2 chars! */
-				srcw = video.xres / video.scale + srcx; desx = 0;
-			} else {
-				srcx = 0;
-				srcw = 320; desx = sdl_emulator.xoffset;
-			}
-
-			for (;srcx < srcw; srcx++) {
-				/* Get 8 bit source pixel and convert to RGB */
-				if (vga_graphmemory[srcy * 320 + srcx] == 0) {
-					colourRGB = colour0RGB;
-				} else {
-					colourRGB = colour1RGB;
-				}
-				if (video.screen->format->BitsPerPixel == 16) {
-					/* Write the destination pixel[s] */
-					screen_pixels_16[desy * video.xres + desx] = colourRGB;
-					if (video.scale > 1) {
-						/* x2 scaling */
-						screen_pixels_16[desy * video.xres + desx + 1] = colourRGB;
-						screen_pixels_16[(desy + 1) * video.xres + desx] = colourRGB;
-						screen_pixels_16[(desy + 1) * video.xres + desx + 1] = colourRGB;
-						if (video.scale > 2) {
-							/* x3 scaling */
-							screen_pixels_16[desy * video.xres + desx + 2] = colourRGB;
-							screen_pixels_16[(desy + 1) * video.xres + desx + 2] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx + 1] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx + 2] = colourRGB;
-						}
+			if (video.scale > 2)
+			{
+				int line1 = 640;
+				int line2 = 1280;
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_16[offset] = colourRGB;
+						screen_pixels_16[line1 + offset] = colourRGB;
+						screen_pixels_16[line2 + offset++] = colourRGB;
+						screen_pixels_16[offset] = colourRGB;
+						screen_pixels_16[line1 + offset] = colourRGB;
+						screen_pixels_16[line2 + offset++] = colourRGB;
+						screen_pixels_16[offset] = colourRGB;
+						screen_pixels_16[line1 + offset] = colourRGB;
+						screen_pixels_16[line2 + offset++] = colourRGB;
 					}
-				} else if (video.screen->format->BitsPerPixel == 32) {
-					/* Write the destination pixel[s] */
-					screen_pixels_32[desy * video.xres + desx] = colourRGB;
-					if (video.scale > 1) {
-						/* x2 scaling */
-						screen_pixels_32[desy * video.xres + desx + 1] = colourRGB;
-						screen_pixels_32[(desy + 1) * video.xres + desx] = colourRGB;
-						screen_pixels_32[(desy + 1) * video.xres + desx + 1] = colourRGB;
-						if (video.scale > 2) {
-							/* x3 scaling */
-							screen_pixels_32[desy * video.xres + desx + 2] = colourRGB;
-							screen_pixels_32[(desy + 1) * video.xres + desx + 2] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx + 1] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx + 2] = colourRGB;
-						}
+					offset += 1280;
+				}
+			} else if (video.scale > 1)
+			{
+				int line = 640;
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_16[offset] = colourRGB;
+						screen_pixels_16[line + offset++] = colourRGB;
+						screen_pixels_16[offset] = colourRGB;
+						screen_pixels_16[line + offset++] = colourRGB;
+
+					}
+					offset += 640;
+				}
+			} else
+			{
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_16[offset++] = colourRGB;
 					}
 				}
-				desx += video.scale;
 			}
-			desy += video.scale;
+		}
+		else
+		{
+			screen_pixels_32 = video.screen->pixels;
+
+			if (video.scale > 2)
+			{
+				int line1 = 640;
+				int line2 = 1280;
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_32[offset] = colourRGB;
+						screen_pixels_32[line1 + offset] = colourRGB;
+						screen_pixels_32[line2 + offset++] = colourRGB;
+						screen_pixels_32[offset] = colourRGB;
+						screen_pixels_32[line1 + offset] = colourRGB;
+						screen_pixels_32[line2 + offset++] = colourRGB;
+						screen_pixels_32[offset] = colourRGB;
+						screen_pixels_32[line1 + offset] = colourRGB;
+						screen_pixels_32[line2 + offset++] = colourRGB;
+					}
+					offset += 1280;
+				}
+			} else if (video.scale > 1)
+			{
+				int line = 640;
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_32[offset] = colourRGB;
+						screen_pixels_32[line + offset++] = colourRGB;
+						screen_pixels_32[offset] = colourRGB;
+						screen_pixels_32[line + offset++] = colourRGB;
+
+					}
+					offset += 640;
+				}
+			} else
+			{
+				for (srcy = 0; srcy < 240; srcy++)
+				{
+					for (srcx = 0 ;srcx < 320; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels_32[offset++] = colourRGB;
+					}
+				}
+			}
 		}
 
 		if (SDL_MUSTLOCK(video.screen)) SDL_UnlockSurface(video.screen);

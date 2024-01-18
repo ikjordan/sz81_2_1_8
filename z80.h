@@ -26,7 +26,6 @@
 extern int hsize,vsize;
 extern int interrupted;
 extern unsigned char* const scrnbmp;
-extern unsigned char* const scrnbmp_old;
 extern unsigned long tstates,tsmax,frames;
 extern int ay_reg;
 

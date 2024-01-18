@@ -51,11 +51,9 @@ unsigned long tstates = 0, tsmax = 65000, frames = 0;
 /* odd place to have this, but the display does work in an odd way :-) */
 static unsigned char scrnbmp_new_base[((DISPLAY_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_HEIGHT]; /* written */
 static unsigned char scrnbmp_base[((DISPLAY_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_HEIGHT];     /* displayed */
-static unsigned char scrnbmp_old_base[((DISPLAY_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_HEIGHT]; /* checked against for diffs */
 
 static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_PADDING;
 unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_PADDING;
-unsigned char *const scrnbmp_old = scrnbmp_old_base + DISPLAY_PADDING;
 
 int vsx = 0;
 int vsy = 0;

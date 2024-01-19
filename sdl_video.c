@@ -410,7 +410,7 @@ void sdl_video_update(void) {
 						screen_pixels[line1 + offset] = colourRGB;
 						screen_pixels[line2 + offset++] = colourRGB;
 					}
-					offset += DISPLAY_WIDTH * 6;
+					offset += line2;
 				}
 			} else if (video.scale > 1)
 			{
@@ -424,9 +424,8 @@ void sdl_video_update(void) {
 						screen_pixels[line + offset++] = colourRGB;
 						screen_pixels[offset] = colourRGB;
 						screen_pixels[line + offset++] = colourRGB;
-
 					}
-					offset += DISPLAY_WIDTH;
+					offset += line;
 				}
 			} else
 			{
@@ -463,7 +462,7 @@ void sdl_video_update(void) {
 						screen_pixels[line1 + offset] = colourRGB;
 						screen_pixels[line2 + offset++] = colourRGB;
 					}
-					offset += DISPLAY_WIDTH * 6;
+					offset += line2;
 				}
 			} else if (video.scale > 1)
 			{
@@ -477,9 +476,8 @@ void sdl_video_update(void) {
 						screen_pixels[line + offset++] = colourRGB;
 						screen_pixels[offset] = colourRGB;
 						screen_pixels[line + offset++] = colourRGB;
-
 					}
-					offset += DISPLAY_WIDTH * 2;
+					offset += line;
 				}
 			} else
 			{

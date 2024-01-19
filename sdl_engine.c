@@ -223,8 +223,13 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				sdl_com_line.fullscreen = FALSE;
 			} else if (sscanf (argv[count], "-%ix%i", 
 				&sdl_com_line.xres, &sdl_com_line.yres) == 2) {
-				if (sdl_com_line.xres < 240 || sdl_com_line.yres < 240) {
-					fprintf (stdout, "Invalid resolution: a minimum of 240x240 is required.\n");
+				if (!(((sdl_com_line.yres == DISPLAY_HEIGHT) && (sdl_com_line.xres == DISPLAY_WIDTH)) ||
+				      ((sdl_com_line.yres == DISPLAY_HEIGHT * 2) && (sdl_com_line.xres == DISPLAY_WIDTH * 2)) ||
+					  ((sdl_com_line.yres == DISPLAY_HEIGHT * 3) && (sdl_com_line.xres == DISPLAY_WIDTH * 3)))) {
+					fprintf (stdout, "Invalid resolution: %ix%i, %ix%i and %ix%i supported.\n",
+					         DISPLAY_WIDTH, DISPLAY_HEIGHT,
+					         DISPLAY_WIDTH * 2, DISPLAY_HEIGHT * 2,
+					         DISPLAY_WIDTH * 3, DISPLAY_HEIGHT * 3);
 					return TRUE;
 				}
 			} else if (sdl_filetype_casecmp(argv[count], ".o") == 0 ||

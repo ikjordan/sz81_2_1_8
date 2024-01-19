@@ -21,7 +21,7 @@
 /* Defines */
 
 /* Variables */
-unsigned char vga_graphmemory[800 * 600];
+unsigned char vga_graphmemory[DISPLAY_WIDTH * DISPLAY_HEIGHT * 4];
 
 /* \x1 means that a value needs to be placed here.
  * \x2 means to invert the colours.
@@ -238,9 +238,9 @@ int sdl_video_setmode(void) {
 	if (video.xres <= 256 * video.scale) {
 		sdl_emulator.xoffset = 0 - 32 * video.scale;
 	} else {
-		sdl_emulator.xoffset = (video.xres - 320 * video.scale) / 2;
+		sdl_emulator.xoffset = (video.xres - DISPLAY_WIDTH * video.scale) / 2;
 	}
-	sdl_emulator.yoffset = (video.yres - 240 * video.scale) / 2;
+	sdl_emulator.yoffset = (video.yres - DISPLAY_HEIGHT * video.scale) / 2;
 
 	#ifdef SDL_DEBUG_VIDEO
 		printf("%s: sdl_emulator.xoffset=%i sdl_emulator.yoffset=%i\n", 
@@ -316,11 +316,9 @@ void sdl_video_update(void) {
 	static Uint32 fg_colourRGB, bg_colourRGB, colour0RGB, colour1RGB;
 	static Uint32 fg_colour, bg_colour;
 	int srcx, srcy, desx, desy, count, offset, invertcolours;
-	Uint32 *screen_pixels_32;
 	Uint32 colourRGB;
 	int xpos, ypos, xmask, ybyte;
 	SDL_Surface *renderedtext;
-	Uint16 *screen_pixels_16;
 	char text[33], *direntry;
 	SDL_Rect dstrect;
 	#ifdef SDL_DEBUG_FONTS
@@ -391,106 +389,106 @@ void sdl_video_update(void) {
 
 		if (video.screen->format->BitsPerPixel == 16)
 		{
-			screen_pixels_16 = video.screen->pixels;
+			Uint16* screen_pixels = video.screen->pixels;
 
 			if (video.scale > 2)
 			{
-				int line1 = 640;
-				int line2 = 1280;
-				for (srcy = 0; srcy < 240; srcy++)
+				int line1 = DISPLAY_WIDTH * 3;
+				int line2 = DISPLAY_WIDTH * 6;
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_16[offset] = colourRGB;
-						screen_pixels_16[line1 + offset] = colourRGB;
-						screen_pixels_16[line2 + offset++] = colourRGB;
-						screen_pixels_16[offset] = colourRGB;
-						screen_pixels_16[line1 + offset] = colourRGB;
-						screen_pixels_16[line2 + offset++] = colourRGB;
-						screen_pixels_16[offset] = colourRGB;
-						screen_pixels_16[line1 + offset] = colourRGB;
-						screen_pixels_16[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
 					}
-					offset += 1280;
+					offset += DISPLAY_WIDTH * 6;
 				}
 			} else if (video.scale > 1)
 			{
-				int line = 640;
-				for (srcy = 0; srcy < 240; srcy++)
+				int line = DISPLAY_WIDTH * 2;
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_16[offset] = colourRGB;
-						screen_pixels_16[line + offset++] = colourRGB;
-						screen_pixels_16[offset] = colourRGB;
-						screen_pixels_16[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
 
 					}
-					offset += 640;
+					offset += DISPLAY_WIDTH;
 				}
 			} else
 			{
-				for (srcy = 0; srcy < 240; srcy++)
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_16[offset++] = colourRGB;
+						screen_pixels[offset++] = colourRGB;
 					}
 				}
 			}
 		}
 		else
 		{
-			screen_pixels_32 = video.screen->pixels;
+			Uint32* screen_pixels = video.screen->pixels;
 
 			if (video.scale > 2)
 			{
-				int line1 = 640;
-				int line2 = 1280;
-				for (srcy = 0; srcy < 240; srcy++)
+				int line1 = DISPLAY_WIDTH * 3;
+				int line2 = DISPLAY_WIDTH * 6;
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_32[offset] = colourRGB;
-						screen_pixels_32[line1 + offset] = colourRGB;
-						screen_pixels_32[line2 + offset++] = colourRGB;
-						screen_pixels_32[offset] = colourRGB;
-						screen_pixels_32[line1 + offset] = colourRGB;
-						screen_pixels_32[line2 + offset++] = colourRGB;
-						screen_pixels_32[offset] = colourRGB;
-						screen_pixels_32[line1 + offset] = colourRGB;
-						screen_pixels_32[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
 					}
-					offset += 1280;
+					offset += DISPLAY_WIDTH * 6;
 				}
 			} else if (video.scale > 1)
 			{
-				int line = 640;
-				for (srcy = 0; srcy < 240; srcy++)
+				int line = DISPLAY_WIDTH * 2;
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_32[offset] = colourRGB;
-						screen_pixels_32[line + offset++] = colourRGB;
-						screen_pixels_32[offset] = colourRGB;
-						screen_pixels_32[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
 
 					}
-					offset += 640;
+					offset += DISPLAY_WIDTH * 2;
 				}
 			} else
 			{
-				for (srcy = 0; srcy < 240; srcy++)
+				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
 				{
-					for (srcx = 0 ;srcx < 320; srcx++)
+					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels_32[offset++] = colourRGB;
+						screen_pixels[offset++] = colourRGB;
 					}
 				}
 			}
@@ -1557,13 +1555,15 @@ void cycle_resolutions(void) {
 		}
 	#else
 		/* 960x720 | 640x480 | 320x240 */
-		if (video.xres == 960) {
-			video.xres = 640; video.yres = 480; video.scale = 2;
-		} else if (video.xres == 640) {
-			video.xres = 320; video.yres = 240; video.scale = 1;
+		if (video.xres == DISPLAY_WIDTH * 3) {
+			video.scale =2;
+		} else if (video.xres == DISPLAY_WIDTH * 2) {
+			video.scale = 1;
 		} else {
-			video.xres = 960; video.yres = 720; video.scale = 3;
+			video.scale = 3;
 		}
+		video.xres = DISPLAY_WIDTH * video.scale;
+		video.yres = DISPLAY_HEIGHT * video.scale;
 	#endif
 }
 

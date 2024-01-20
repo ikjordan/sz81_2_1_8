@@ -167,7 +167,7 @@ int save_state_dialog_slots_populate(void) {
  *           else FALSE */
 
 int sdl_save_file(int parameter, int method) {
-	char fullpath[256], filename[256];
+	char fullpath[256]={0}, filename[256];
 	struct Notification notification;
 	int retval = FALSE;
 	int index;
@@ -421,7 +421,7 @@ int sdl_save_file(int parameter, int method) {
  *           else FALSE */
 
 int sdl_load_file(int parameter, int method) {
-	char fullpath[256], filename[256];
+	char fullpath[256] = {0}, filename[256];
 	struct Notification notification;
 	int retval = FALSE;
 	int count, index;
@@ -1056,8 +1056,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 				*dirlist + *dirlist_sizeof * (count + 1)) > 0) {
 				swapped = TRUE;
 				strcpy(swap, *dirlist + *dirlist_sizeof * (count + 1));
-				strcpy(*dirlist + *dirlist_sizeof * (count + 1),
-					*dirlist + *dirlist_sizeof * count);
+				memmove(*dirlist + *dirlist_sizeof * (count + 1),
+					*dirlist + *dirlist_sizeof * count,
+					strlen(*dirlist + *dirlist_sizeof * count) + 1);
 				strcpy(*dirlist + *dirlist_sizeof * count, swap);
 			}
 		}

@@ -58,7 +58,7 @@ int sdl_init(void) {
 		video.xres = 640; video.yres = 480; video.scale = 2;
 		video.fullscreen = SDL_FULLSCREEN;
 	#else
-		video.xres = 640; video.yres = 480; video.scale = 2;
+		video.xres = DISPLAY_N_WIDTH * 2; video.yres = DISPLAY_N_HEIGHT * 2; video.scale = 2;
 		video.fullscreen = FALSE;
 	#endif
 
@@ -225,10 +225,14 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				useNTSC = true;
 			} else if (!strcmp (argv[count], "-c")) {
 				centreScreen = true;
+			} else if (!strcmp (argv[count], "-p")) {
+				fiveSevenSix = true;
 			} else if (!strcmp (argv[count], "-l")) {
 				configLowRAM = true;
 			} else if (!strcmp (argv[count], "-r")) {
 				chr128 = true;
+			} else if (!strcmp (argv[count], "-b")) {
+				fullDisplay = true;
 			} else if (sscanf (argv[count], "-v%i",
 			    &vertTol) == 1 ) {
 				if ((vertTol > 150) || (vertTol < 1)) {
@@ -237,13 +241,13 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				}
 			} else if (sscanf (argv[count], "-%ix%i", 
 				&sdl_com_line.xres, &sdl_com_line.yres) == 2) {
-				if (!(((sdl_com_line.yres == DISPLAY_HEIGHT) && (sdl_com_line.xres == DISPLAY_WIDTH)) ||
-				      ((sdl_com_line.yres == DISPLAY_HEIGHT * 2) && (sdl_com_line.xres == DISPLAY_WIDTH * 2)) ||
-					  ((sdl_com_line.yres == DISPLAY_HEIGHT * 3) && (sdl_com_line.xres == DISPLAY_WIDTH * 3)))) {
+				if (!(((sdl_com_line.yres == DISPLAY_N_HEIGHT) && (sdl_com_line.xres == DISPLAY_N_WIDTH)) ||
+				      ((sdl_com_line.yres == DISPLAY_N_HEIGHT * 2) && (sdl_com_line.xres == DISPLAY_N_WIDTH * 2)) ||
+					  ((sdl_com_line.yres == DISPLAY_N_HEIGHT * 3) && (sdl_com_line.xres == DISPLAY_N_WIDTH * 3)))) {
 					fprintf (stdout, "Invalid resolution: %ix%i, %ix%i and %ix%i supported.\n",
-					         DISPLAY_WIDTH, DISPLAY_HEIGHT,
-					         DISPLAY_WIDTH * 2, DISPLAY_HEIGHT * 2,
-					         DISPLAY_WIDTH * 3, DISPLAY_HEIGHT * 3);
+					         DISPLAY_N_WIDTH, DISPLAY_N_HEIGHT,
+					         DISPLAY_N_WIDTH * 2, DISPLAY_N_HEIGHT * 2,
+					         DISPLAY_N_WIDTH * 3, DISPLAY_N_HEIGHT * 3);
 					return TRUE;
 				}
 			} else if (sdl_filetype_casecmp(argv[count], ".o") == 0 ||
@@ -260,6 +264,8 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -f  run the program fullscreen\n"
 					"  -h  this usage help\n"
 					"  -w  run the program in a window\n"
+					"  -p  576 line display (360 pixels by 288)\n"
+					"  -b  full display (414 pixels by 313)\n"
 					"  -n  Emulate NTSC display\n"
 					"  -c  Centre display\n"
 					"  -r  Enable chr128 support\n"
@@ -284,6 +290,21 @@ int sdl_com_line_process(int argc, char *argv[]) {
 		video.scale = sdl_com_line.scale;
 		video.xres = sdl_com_line.xres;
 		video.yres = sdl_com_line.yres;
+	}
+
+	if (fullDisplay)
+	{
+		centreScreen = false;
+		video.xres = DISPLAY_F_WIDTH * video.scale;
+		video.yres = DISPLAY_F_HEIGHT * video.scale;
+		fiveSevenSix = false;
+	}
+
+	if (fiveSevenSix)
+	{
+		centreScreen = false;
+		video.xres = DISPLAY_P_WIDTH * video.scale;
+		video.yres = DISPLAY_P_HEIGHT * video.scale;
 	}
 	if (*sdl_com_line.filename) {
 		/* sdl_load_file will detect this preset method when

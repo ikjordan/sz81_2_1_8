@@ -49,11 +49,11 @@ unsigned char partable[256] = {
 unsigned long tstates = 0, tsmax = 65000, frames = 0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
-static unsigned char scrnbmp_new_base[((DISPLAY_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_HEIGHT]; /* written */
-static unsigned char scrnbmp_base[((DISPLAY_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_HEIGHT];     /* displayed */
+static unsigned char scrnbmp_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT]; /* written */
+static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];     /* displayed */
 
-static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_PADDING;
-unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_PADDING;
+static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_F_PADDING;
+unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_F_PADDING;
 
 int vsx = 0;
 int vsy = 0;
@@ -346,8 +346,8 @@ void mainloop()
         if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
         {
           int addr;
-          if (chr128 && i > 0x20 && i & 1) {
-            addr = ((i & 0xfe) << 8) | ((((op & 128) >> 1) | (op & 63)) << 3) | rowcounter;}
+          if (chr128 && i > 0x20 && i & 1)
+            addr = ((i & 0xfe) << 8) | ((((op & 128) >> 1) | (op & 63)) << 3) | rowcounter;
           else
             addr = ((i & 0xfe) << 8) | ((op & 63) << 3) | rowcounter;
 
@@ -429,8 +429,11 @@ void mainloop()
         if (zx80) hsync_pending = 1;
       break;
     }
+    // Plot data in shift register
+    // Note subtract 6 as this leaves the smallest positive number
+    // of bits to carry to next byte (2)
     if (v &&
-        (RasterX >= (disp.start_x - disp.adjust_x + adjustStartX)) &&
+        (RasterX >= (disp.start_x - adjustStartX - 6)) &&
         (RasterX < (disp.end_x - adjustStartX)) &&
         (RasterY >= (disp.start_y - adjustStartY)) &&
         (RasterY < (disp.end_y - adjustStartY)))

@@ -34,7 +34,7 @@
 /* Defines */
 
 /* Variables */
-int hsize = DISPLAY_WIDTH, vsize = DISPLAY_HEIGHT;
+//int hsize = DISPLAY_WIDTH, vsize = DISPLAY_HEIGHT;
 unsigned char *vptr;
 
 /* Function prototypes */
@@ -569,24 +569,24 @@ void update_scrn(void) {
 
 	if (sdl_emulator.invert)
 	{
-		for (y = 0; y < DISPLAY_HEIGHT; y++)
+		for (y = 0; y < disp.height; y++)
 		{
-			for (x = 0; x < DISPLAY_WIDTH; x += 8)
+			for (x = 0; x < disp.width; x += 8)
 			{
 				*v64ptr++ = lookupv[*ptr++];
 			}
-			ptr += DISPLAY_PADDING;
+			ptr += disp.padding;
 		}
 	}
 	else
 	{
-		for (y = 0; y < DISPLAY_HEIGHT; y++)
+		for (y = 0; y < disp.height; y++)
 		{
-			for (x = 0; x < DISPLAY_WIDTH; x += 8)
+			for (x = 0; x < disp.width; x += 8)
 			{
 				*v64ptr++ = lookup[*ptr++];
 			}
-			ptr += DISPLAY_PADDING;
+			ptr += disp.padding;
 		}
 	}
 

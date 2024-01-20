@@ -27,16 +27,29 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define DISPLAY_WIDTH       320
-#define DISPLAY_HEIGHT      240
-#define DISPLAY_START_X     46
-#define DISPLAY_START_Y     24
-#define DISPLAY_END_X       (DISPLAY_WIDTH + DISPLAY_START_X)
-#define DISPLAY_END_Y       (DISPLAY_HEIGHT + DISPLAY_START_Y)
-#define DISPLAY_PIXEL_OFF   4
-#define DISPLAY_START_PIXEL (DISPLAY_START_X - DISPLAY_PIXEL_OFF)
-#define DISPLAY_END_PIXEL   (DISPLAY_START_X - DISPLAY_PIXEL_OFF + DISPLAY_WIDTH)
-#define DISPLAY_PADDING     1
+// Sizes for normal display
+#define DISPLAY_N_WIDTH       320
+#define DISPLAY_N_HEIGHT      240
+#define DISPLAY_N_START_X     46
+#define DISPLAY_N_START_Y     24
+#define DISPLAY_N_PIXEL_OFF   4
+#define DISPLAY_N_PADDING     1
+
+// Size for 576 line display (as for PAL TV)
+#define DISPLAY_P_WIDTH       360
+#define DISPLAY_P_HEIGHT      288
+#define DISPLAY_P_START_X     24
+#define DISPLAY_P_START_Y     0
+#define DISPLAY_P_PIXEL_OFF   2
+#define DISPLAY_P_PADDING     1
+
+// Sizes for full (debug) display
+#define DISPLAY_F_WIDTH       416
+#define DISPLAY_F_HEIGHT      314
+#define DISPLAY_F_START_X     0
+#define DISPLAY_F_START_Y     0
+#define DISPLAY_F_PIXEL_OFF   0
+#define DISPLAY_F_PADDING     1
 
 typedef struct
 {
@@ -49,8 +62,9 @@ typedef struct
     uint16_t end_x;         // X Offset in bits to last pixel to display, without centring
     uint16_t start_y;       // Y Offset in lines to first line to display
     uint16_t end_y;         // Y Offset in lines to last line to display
-    int16_t  adjust_x;      // Pixels to adjust in X dimension to centre the display
+    int16_t  adjust_x;      // Pixels to skip before start to display line
     int16_t  offset;        // Offset in bits to convert from raster to display coords
+    uint16_t padding;       // Padding per line in bytes
 } Display_T;
 
 extern Display_T disp;
@@ -98,6 +112,8 @@ extern bool useNTSC;
 extern bool chr128;
 extern bool centreScreen;
 extern bool configLowRAM;
+extern bool fullDisplay;
+extern bool fiveSevenSix;
 extern int  vertTol;
 
 extern int  adjustStartX;

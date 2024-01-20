@@ -73,6 +73,8 @@ bool useNTSC = false;
 bool chr128 = false;
 bool centreScreen = false;
 bool configLowRAM = false;
+bool fullDisplay = false;
+bool fiveSevenSix = false;
 int vertTol = 100;
 
 #ifdef SZ81	/* Added by Thunor */
@@ -325,23 +327,48 @@ Display_T disp;
 
 void initdisplay(void)
 {
-    disp.width = DISPLAY_WIDTH;
-    disp.height = DISPLAY_HEIGHT;
-    disp.stride_bit = (DISPLAY_PADDING << 3) + DISPLAY_WIDTH;
-    disp.stride_byte = disp.stride_bit >> 3;
-    disp.length = disp.stride_byte * disp.height;
-    disp.start_x = DISPLAY_START_X;
-    disp.end_x = disp.start_x + disp.width;
-    disp.start_y = DISPLAY_START_Y;
-    disp.end_y = disp.height + disp.start_y;
-    disp.adjust_x = DISPLAY_PIXEL_OFF;
-    disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
+  if (fullDisplay)
+  {
+    disp.width = DISPLAY_F_WIDTH;
+    disp.height = DISPLAY_F_HEIGHT;
+    disp.stride_bit = (DISPLAY_F_PADDING << 3) + DISPLAY_F_WIDTH;
+    disp.start_x = DISPLAY_F_START_X;
+    disp.start_y = DISPLAY_F_START_Y;
+    disp.adjust_x = DISPLAY_F_PIXEL_OFF;
+    disp.padding = DISPLAY_F_PADDING;
+  }
+  else if (fiveSevenSix)
+  {
+    disp.width = DISPLAY_P_WIDTH;
+    disp.height = DISPLAY_P_HEIGHT;
+    disp.stride_bit = (DISPLAY_P_PADDING << 3) + DISPLAY_P_WIDTH;
+    disp.start_x = DISPLAY_P_START_X;
+    disp.start_y = DISPLAY_P_START_Y;
+    disp.adjust_x = DISPLAY_P_PIXEL_OFF;
+    disp.padding = DISPLAY_P_PADDING;
+  }
+  else
+  {
+    disp.width = DISPLAY_N_WIDTH;
+    disp.height = DISPLAY_N_HEIGHT;
+    disp.stride_bit = (DISPLAY_N_PADDING << 3) + DISPLAY_N_WIDTH;
+    disp.start_x = DISPLAY_N_START_X;
+    disp.start_y = DISPLAY_N_START_Y;
+    disp.adjust_x = DISPLAY_N_PIXEL_OFF;
+    disp.padding = DISPLAY_N_PADDING;
 
     if (centreScreen)
     {
-      adjustStartX = DISPLAY_PIXEL_OFF;
-      adjustStartY = (useNTSC) ? (DISPLAY_START_Y >> 1) : -(DISPLAY_START_Y >> 1);
+      adjustStartX = DISPLAY_N_PIXEL_OFF;
+      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
     }
+  }
+
+  disp.stride_byte = disp.stride_bit >> 3;
+  disp.length = disp.stride_byte * disp.height;
+  disp.end_x = disp.start_x + disp.width;
+  disp.end_y = disp.height + disp.start_y;
+  disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
 }
 #endif
 

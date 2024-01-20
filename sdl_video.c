@@ -21,7 +21,7 @@
 /* Defines */
 
 /* Variables */
-unsigned char vga_graphmemory[DISPLAY_WIDTH * DISPLAY_HEIGHT * 4];
+unsigned char vga_graphmemory[DISPLAY_F_WIDTH * DISPLAY_F_HEIGHT];
 
 /* \x1 means that a value needs to be placed here.
  * \x2 means to invert the colours.
@@ -238,9 +238,9 @@ int sdl_video_setmode(void) {
 	if (video.xres <= 256 * video.scale) {
 		sdl_emulator.xoffset = 0 - 32 * video.scale;
 	} else {
-		sdl_emulator.xoffset = (video.xres - DISPLAY_WIDTH * video.scale) / 2;
+		sdl_emulator.xoffset = (video.xres - disp.width * video.scale) / 2;
 	}
-	sdl_emulator.yoffset = (video.yres - DISPLAY_HEIGHT * video.scale) / 2;
+	sdl_emulator.yoffset = (video.yres - disp.height * video.scale) / 2;
 
 	#ifdef SDL_DEBUG_VIDEO
 		printf("%s: sdl_emulator.xoffset=%i sdl_emulator.yoffset=%i\n", 
@@ -393,11 +393,11 @@ void sdl_video_update(void) {
 
 			if (video.scale > 2)
 			{
-				int line1 = DISPLAY_WIDTH * 3;
-				int line2 = DISPLAY_WIDTH * 6;
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				int line1 = disp.width * 3;
+				int line2 = disp.width * 6;
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset] = colourRGB;
@@ -414,10 +414,10 @@ void sdl_video_update(void) {
 				}
 			} else if (video.scale > 1)
 			{
-				int line = DISPLAY_WIDTH * 2;
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				int line = disp.width * 2;
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset] = colourRGB;
@@ -429,9 +429,9 @@ void sdl_video_update(void) {
 				}
 			} else
 			{
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset++] = colourRGB;
@@ -445,11 +445,11 @@ void sdl_video_update(void) {
 
 			if (video.scale > 2)
 			{
-				int line1 = DISPLAY_WIDTH * 3;
-				int line2 = DISPLAY_WIDTH * 6;
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				int line1 = disp.width * 3;
+				int line2 = disp.width * 6;
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset] = colourRGB;
@@ -466,10 +466,10 @@ void sdl_video_update(void) {
 				}
 			} else if (video.scale > 1)
 			{
-				int line = DISPLAY_WIDTH * 2;
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				int line = disp.width * 2;
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset] = colourRGB;
@@ -481,9 +481,9 @@ void sdl_video_update(void) {
 				}
 			} else
 			{
-				for (srcy = 0; srcy < DISPLAY_HEIGHT; srcy++)
+				for (srcy = 0; srcy < disp.height; srcy++)
 				{
-					for (srcx = 0 ;srcx < DISPLAY_WIDTH; srcx++)
+					for (srcx = 0 ;srcx < disp.width; srcx++)
 					{
 						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
 						screen_pixels[offset++] = colourRGB;
@@ -1553,15 +1553,15 @@ void cycle_resolutions(void) {
 		}
 	#else
 		/* 960x720 | 640x480 | 320x240 */
-		if (video.xres == DISPLAY_WIDTH * 3) {
-			video.scale =2;
-		} else if (video.xres == DISPLAY_WIDTH * 2) {
+		if (video.xres == disp.width * 3) {
+			video.scale = 2;
+		} else if (video.xres == disp.width * 2) {
 			video.scale = 1;
 		} else {
 			video.scale = 3;
 		}
-		video.xres = DISPLAY_WIDTH * video.scale;
-		video.yres = DISPLAY_HEIGHT * video.scale;
+		video.xres = disp.width * video.scale;
+		video.yres = disp.height * video.scale;
 	#endif
 }
 

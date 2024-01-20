@@ -120,7 +120,6 @@ static inline int nmi_interrupt(void);
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
 
 extern int printer_inout(int is_out, int val);
-bool chr128 = false;
 
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
 {
@@ -256,7 +255,7 @@ void mainloop()
   VSYNC_state = HSYNC_state = 0;
   frames = 0;
   hsync_counter = 0;
-  setEmulatedTV(!useNTSC, 30);
+  setEmulatedTV(!useNTSC, vertTol);
 
   if (sdl_emulator.autoload)
   {
@@ -347,8 +346,8 @@ void mainloop()
         if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
         {
           int addr;
-          if (chr128 && i > 0x20 && i & 1)
-            addr = ((i & 0xfe) << 8) | ((((op & 128)>>1) | (op & 63)) << 3) | rowcounter;
+          if (chr128 && i > 0x20 && i & 1) {
+            addr = ((i & 0xfe) << 8) | ((((op & 128) >> 1) | (op & 63)) << 3) | rowcounter;}
           else
             addr = ((i & 0xfe) << 8) | ((op & 63) << 3) | rowcounter;
 

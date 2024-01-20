@@ -707,9 +707,6 @@ int main(int argc, char *argv[]) {
 	}
 	#endif
 
-	/* Initialise display storage */
-	initdisplay();
-
 	/* Initialise sz81 variables, SDL, WM icon, local data dir */
 	retval = sdl_init();
 	if (!retval) {
@@ -723,6 +720,9 @@ int main(int argc, char *argv[]) {
 			 * something goes wrong then it's clear to the user where
 			 * everything is supposed to be */
 			fprintf(stdout, "PACKAGE_DATA_DIR is %s\n", PACKAGE_DATA_DIR);
+
+			/* Initialise display storage */
+			initdisplay();
 
 			/* Set the video mode, set-up component screen offsets,
 			 * initialise fonts, icons, vkeyb and control bar */

@@ -59,7 +59,7 @@ int load_hook=1,save_hook=1;
 int vsync_visuals=1;
 int invert_screen=0;
 
-/* Test variables */
+/* Variables set from SDL menus */
 bool m1not = false;
 bool useWRX = true;
 bool UDGEnabled = false;
@@ -68,11 +68,12 @@ bool LowRAM = true;
 int adjustStartY = 0;
 int adjustStartX = 0;
 
-#ifdef USE_NTSC
-bool useNTSC = true;
-#else
+/* Variable set from command line options*/
 bool useNTSC = false;
-#endif
+bool chr128 = false;
+bool centreScreen = false;
+bool configLowRAM = false;
+int vertTol = 100;
 
 #ifdef SZ81	/* Added by Thunor */
 int signal_int_flag=0;
@@ -321,7 +322,7 @@ if(load_hook)
 
 #ifdef SZ81
 Display_T disp;
-//#define CENTRE
+
 void initdisplay(void)
 {
     disp.width = DISPLAY_WIDTH;
@@ -336,10 +337,11 @@ void initdisplay(void)
     disp.adjust_x = DISPLAY_PIXEL_OFF;
     disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
 
-#ifdef CENTRE
+    if (centreScreen)
+    {
       adjustStartX = DISPLAY_PIXEL_OFF;
       adjustStartY = (useNTSC) ? (DISPLAY_START_Y >> 1) : -(DISPLAY_START_Y >> 1);
-#endif
+    }
 }
 #endif
 
@@ -384,7 +386,7 @@ if (ramsize > 48)
 }
 else
 {
-  LowRAM = false;
+  LowRAM = (configLowRAM || chr128 || useQSUDG);
 }
 useWRX = (sdl_emulator.wrx != HIRESDISABLED);
 useWRX = useWRX || (ramsize < 3);

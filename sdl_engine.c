@@ -221,6 +221,20 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				sdl_com_line.fullscreen = TRUE;
 			} else if (!strcmp (argv[count], "-w")) {
 				sdl_com_line.fullscreen = FALSE;
+			} else if (!strcmp (argv[count], "-n")) {
+				useNTSC = true;
+			} else if (!strcmp (argv[count], "-c")) {
+				centreScreen = true;
+			} else if (!strcmp (argv[count], "-l")) {
+				configLowRAM = true;
+			} else if (!strcmp (argv[count], "-r")) {
+				chr128 = true;
+			} else if (sscanf (argv[count], "-v%i",
+			    &vertTol) == 1 ) {
+				if ((vertTol > 150) || (vertTol < 1)) {
+					fprintf(stdout, "Invalid vertical tolerance. Allowed range 1 to 150.\n");
+					return TRUE;
+				}
 			} else if (sscanf (argv[count], "-%ix%i", 
 				&sdl_com_line.xres, &sdl_com_line.yres) == 2) {
 				if (!(((sdl_com_line.yres == DISPLAY_HEIGHT) && (sdl_com_line.xres == DISPLAY_WIDTH)) ||
@@ -246,6 +260,11 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -f  run the program fullscreen\n"
 					"  -h  this usage help\n"
 					"  -w  run the program in a window\n"
+					"  -n  Emulate NTSC display\n"
+					"  -c  Centre display\n"
+					"  -r  Enable chr128 support\n"
+					"  -l  Enable RAM in 8 to 16kB\n"
+					"  -vTOL      e.g. -r100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;
 			}

@@ -86,13 +86,20 @@ extern int refresh_screen;
 extern int zx80;
 extern int ignore_esc;
 
-/* Test variables */
+/* Variables set from SDL menus */
 extern bool m1not;
 extern bool useWRX;
 extern bool useQSUDG;
 extern bool UDGEnabled;
 extern bool LowRAM;
 extern bool useNTSC;
+
+/* Variable set from command line options*/
+extern bool chr128;
+extern bool centreScreen;
+extern bool configLowRAM;
+extern int  vertTol;
+
 extern int  adjustStartX;
 extern int  adjustStartY;
 

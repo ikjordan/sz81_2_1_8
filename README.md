@@ -40,9 +40,11 @@ e.g. `-r100` for 100 line vertical sync tolerance.
 
 Determines how fast the emulated TV will find vertical lock. The smaller the number, the longer to achieve lock
 
-
+## Extra functionality
+The ZX81 emulation supports the loading and saving of named blocks. The syntax follows that of picozx81 and [ZXpand](https://github-wiki-see.page/m/charlierobson/ZXpand-Vitamins/wiki/ZXpand---Online-Manual)
+# Build and Run
 ## To run on Pi
-sz81 uses SDL1.2. The latest Raspberry Pi OS (bookworm) default to Wayland for faster Pis. When SDL1.2 is used with wayland the resize flag is not respected. This means that the sz81 window can be resized by the user, even though the underlying code does not support this. The following can prevent the resize:
+sz81 uses SDL1.2. The latest Raspberry Pi OS (bookworm) defaults to Wayland for Pi4 and Pi5. When SDL1.2 is used with wayland the resize flag is not respected. This means that the sz81 window can be resized by the user, even though the underlying code does not support this. The following can prevent the resize:
 
 1. Install sdl12-compat  
 `sudo apt install libsdl1.2-compat`
@@ -55,12 +57,12 @@ Modify the symlink `libSDL.so` at:
 `export SDL_VIDEODRIVER=wayland;./sz81`
 
 ## To build on Risc OS
-The script `mkrisc.sh` creates a directory tree under `riscroot` that can be copied to Risc OS to compile with the gcc available from PackMan. 
+The script `mkrisc.sh` creates a directory tree under `riscroot` that can be copied to Risc OS to compile with the gcc available from !PackMan
 
-The SDL 1.2 libraries and includes must be downloaded from Packman and placed where they can be found from the Makefile
+The SDL 1.2 libraries and includes must be downloaded from !Packman and placed where they can be found from the Makefile
 
 ### Notes
-1. The heap size needs to be increased to build the z80 emualator  
+1. The compiler heap size needs to be increased to build the z80 emulator  
 `*SetEval cc1$HeapMax 128`
 
 2. The executable needs to be converted to aif format  

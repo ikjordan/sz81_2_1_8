@@ -786,6 +786,7 @@ unsigned int out(int h, int l, int a)
   switch (l)
   {
   case 0x0f:
+  case 0x1f:
     if (sound_ay && sound_ay_type == AY_TYPE_ZONX)
       sound_ay_write(ay_reg, a);
     break;

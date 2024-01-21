@@ -1,0 +1,5 @@
+WimpSlot -min 3980k -max 3980k
+
+Set Sz81$Dir <Obey$Dir>
+
+Run <Sz81$Dir>.sz81 > <Obey$Dir>.stderr

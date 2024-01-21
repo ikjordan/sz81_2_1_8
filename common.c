@@ -59,19 +59,23 @@ int load_hook=1,save_hook=1;
 int vsync_visuals=1;
 int invert_screen=0;
 
-/* Test variables */
+/* Variables set from SDL menus */
 bool m1not = false;
 bool useWRX = true;
 bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
-#if 0
-bool useNTSC = true;
-int  adjustStartY=12;
-#else
+int adjustStartY = 0;
+int adjustStartX = 0;
+
+/* Variable set from command line options*/
 bool useNTSC = false;
-int  adjustStartY=-12;
-#endif
+bool chr128 = false;
+bool centreScreen = false;
+bool configLowRAM = false;
+bool fullDisplay = false;
+bool fiveSevenSix = false;
+int vertTol = 100;
 
 #ifdef SZ81	/* Added by Thunor */
 int signal_int_flag=0;
@@ -318,6 +322,55 @@ if(load_hook)
   }
 }
 
+#ifdef SZ81
+Display_T disp;
+
+void initdisplay(void)
+{
+  if (fullDisplay)
+  {
+    disp.width = DISPLAY_F_WIDTH;
+    disp.height = DISPLAY_F_HEIGHT;
+    disp.stride_bit = (DISPLAY_F_PADDING << 3) + DISPLAY_F_WIDTH;
+    disp.start_x = DISPLAY_F_START_X;
+    disp.start_y = DISPLAY_F_START_Y;
+    disp.adjust_x = DISPLAY_F_PIXEL_OFF;
+    disp.padding = DISPLAY_F_PADDING;
+  }
+  else if (fiveSevenSix)
+  {
+    disp.width = DISPLAY_P_WIDTH;
+    disp.height = DISPLAY_P_HEIGHT;
+    disp.stride_bit = (DISPLAY_P_PADDING << 3) + DISPLAY_P_WIDTH;
+    disp.start_x = DISPLAY_P_START_X;
+    disp.start_y = DISPLAY_P_START_Y;
+    disp.adjust_x = DISPLAY_P_PIXEL_OFF;
+    disp.padding = DISPLAY_P_PADDING;
+  }
+  else
+  {
+    disp.width = DISPLAY_N_WIDTH;
+    disp.height = DISPLAY_N_HEIGHT;
+    disp.stride_bit = (DISPLAY_N_PADDING << 3) + DISPLAY_N_WIDTH;
+    disp.start_x = DISPLAY_N_START_X;
+    disp.start_y = DISPLAY_N_START_Y;
+    disp.adjust_x = DISPLAY_N_PIXEL_OFF;
+    disp.padding = DISPLAY_N_PADDING;
+
+    if (centreScreen)
+    {
+      adjustStartX = DISPLAY_N_PIXEL_OFF;
+      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
+    }
+  }
+
+  disp.stride_byte = disp.stride_bit >> 3;
+  disp.length = disp.stride_byte * disp.height;
+  disp.end_x = disp.start_x + disp.width;
+  disp.end_y = disp.height + disp.start_y;
+  disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
+}
+#endif
 
 void initmem()
 {
@@ -360,7 +413,7 @@ if (ramsize > 48)
 }
 else
 {
-  LowRAM = false;
+  LowRAM = (configLowRAM || chr128 || useQSUDG);
 }
 useWRX = (sdl_emulator.wrx != HIRESDISABLED);
 useWRX = useWRX || (ramsize < 3);

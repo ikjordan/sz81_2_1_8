@@ -1,0 +1,5 @@
+| !Boot file for Sz81
+
+Set Sz81$Dir <Obey$Dir>
+IfThere <Sz81$Dir>.!Sprites then Iconsprites <Sz81$Dir>.!Sprites
+

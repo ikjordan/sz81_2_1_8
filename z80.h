@@ -25,12 +25,10 @@
 
 extern int hsize,vsize;
 extern int interrupted;
-extern unsigned char scrnbmp[],scrnbmp_old[];
+extern unsigned char* const scrnbmp;
 extern unsigned long tstates,tsmax,frames;
 extern int ay_reg;
 
-extern void vsync_raise(void);
-extern void vsync_lower(void);
 extern void mainloop();
 #ifdef SZ81	/* Added by Thunor */
 extern void z80_reset(void);

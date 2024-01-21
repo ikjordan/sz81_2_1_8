@@ -17,7 +17,7 @@
 
 /* Includes */
 #include "sdl_engine.h"
-
+#include "common.h"
 /* Defines */
 
 /* Now unused Variables */
@@ -29,9 +29,19 @@ unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 int hsyncskip=0;
 int ulacharline=0;
 
+/* Error macros */
+#define ERROR_D() mem[16384] = 12;
+#define ERROR_INV1() mem[16384] = 128;
+#define ERROR_INV2() mem[16384] = 129;
+#define ERROR_INV3() mem[16384] = 130;
 
 /* Function prototypes */
 char *strtoupper(char *original);
+bool parseNumber(const char* input,
+                 unsigned int min,
+                 unsigned int max,
+                 char term,
+                 unsigned int* out);
 char *strzx81_to_ascii(int memaddr);
 char *strzx80_to_ascii(int memaddr);
 void fwrite_unsigned_short_little_endian(unsigned short *source, FILE *fp);
@@ -91,7 +101,7 @@ int save_state_dialog_slots_populate(void) {
 		save_state_dialog.slots[count] = 0;
 
 	/* Build a path to the currently loaded program's save state folder */
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(foldername, LOCAL_DATA_DIR);
 	#else
 		strcpy(foldername, getenv ("HOME"));
@@ -167,58 +177,45 @@ int save_state_dialog_slots_populate(void) {
  *           else FALSE */
 
 int sdl_save_file(int parameter, int method) {
-	char fullpath[256], filename[256];
+	char fullpath[256]={0}, filename[256];
 	struct Notification notification;
 	int retval = FALSE;
 	int index;
 	FILE *fp;
-	#ifndef __amigaos4__
-		/*struct tm *timestruct;	Redundant
-		time_t rightnow;*/
-		int idxend, vars;
-	#endif
+	int idxend, vars;
 
-	if (method == SAVE_FILE_METHOD_NAMEDSAVE) {
-		/* Build a path from the last entered directory */
-		strcpy(fullpath, load_file_dialog.dir);
-		/* Add a directory delimiter if required */
-		strcatdelimiter(fullpath);
-#if 0
-		/* Add the local program dir.  This will only really work
-		 * on platforms that aren't changing load_file_dialog.dir */
-		#ifdef __amigaos4__
-			strcat(fullpath, LOCAL_PROGRM_DIR);
+	char *extend = 0;
+	char *comma = 0;
+	int start = 0;
+	int length = 0;
+	bool found = false;
+	bool zx80 = false;
+
+	if ((method == SAVE_FILE_METHOD_NAMEDSAVE) ||
+	    (method == SAVE_FILE_METHOD_UNNAMEDSAVE)) {
+		if (method == SAVE_FILE_METHOD_NAMEDSAVE) {
+			/* Build a path from the last entered directory */
+			strcpy(fullpath, load_file_dialog.dir);
+			/* Add a directory delimiter if required */
 			strcatdelimiter(fullpath);
-		#endif
-#endif
-		/* Add translated program name */
-		strcat(fullpath, strzx81_to_ascii(parameter));
-		/* Add a file extension if one hasn't already been affixed */
-		if (sdl_filetype_casecmp(fullpath, ".p") != 0 &&
-			sdl_filetype_casecmp(fullpath, ".81") != 0)
-			strcat(fullpath, ".p");
-	} else if (method == SAVE_FILE_METHOD_UNNAMEDSAVE) {
-		#ifdef __amigaos4__
-			/* This will return NULL if the user cancelled */
-			if ((amiga_file_request_retval = amiga_file_request("SZ81: Save file", TRUE)) != NULL) {
-				strcpy(fullpath, amiga_file_request_retval);
-			} else {
-				retval = TRUE;
-			}
-		#else
+
+			strcpy(filename, strzx81_to_ascii(parameter));
+		}
+		else if (method == SAVE_FILE_METHOD_UNNAMEDSAVE) {
+			zx80 = true;
 			/* Build a path from the last entered directory */
 			strcpy(fullpath, load_file_dialog.dir);
 			/* Add a directory delimiter if required */
 			strcatdelimiter(fullpath);
 
 			/* At the moment I'm not looking to develop a Save As dialog
-			 * just for ZX80 files, but I'm happy to implement some other
-			 * methods to name the files:
-			 * 1. Date and time stamped files e.g. zx80-20110115-234836.o
-			 *    (the GP2X won't support this but everything else is OK)
-			 * 2. Incremented filenames e.g. zx80-0001.o, zx80-0002.o etc.
-			 * 3. Filenames embedded within a xxxx REM SAVE "progname"
-			 *    (works on any platform and is actually quit cool :) ) */
+				* just for ZX80 files, but I'm happy to implement some other
+				* methods to name the files:
+				* 1. Date and time stamped files e.g. zx80-20110115-234836.o
+				*    (the GP2X won't support this but everything else is OK)
+				* 2. Incremented filenames e.g. zx80-0001.o, zx80-0002.o etc.
+				* 3. Filenames embedded within a xxxx REM SAVE "progname"
+				*    (works on any platform and is actually quit cool :) ) */
 			index = 0x4028;	/* Start of user program area */
 			vars = mem[0x4009] << 8 | mem[0x4008];	/* VARS */
 			while (index < vars) {
@@ -243,52 +240,94 @@ int sdl_save_file(int parameter, int method) {
 				strftime(filename, sizeof(filename), "zx80-%Y%m%d-%H%M%S.o", timestruct);*/
 
 				/* Create a unique filename using the next highest number
-				 * (it'll return 0 if the directory couldn't be opened or 1 as
-				 * the base number when no files exist that match the pattern) */
+					* (it'll return 0 if the directory couldn't be opened or 1 as
+					* the base number when no files exist that match the pattern) */
 				index = get_filename_next_highest(fullpath, "zx80prog%4d");
 				sprintf(filename, "zx80prog%04i.o", index);
+			}
+		}
+		// find last ;
+		extend = strrchr(filename, ';');
+
+		if (extend) {
+			// verify , after last ;
+			++extend;
+			comma = strrchr(extend, ',');
+
+			if (comma) {
+				found = true; // Have found ; and ,
+				++comma;
+
+				if (!parseNumber(extend, 0, 0xffff, ',', (unsigned int*)&start)) {
+					fprintf(stderr, "Illegal start address, generating error 1\n");
+					ERROR_INV1();
+					retval = TRUE;
+				} else if (!parseNumber(comma, 1, 0x10000, 0, (unsigned int*)&length)) {
+					fprintf(stderr, "Illegal length, generating error 2\n");
+					ERROR_INV2();
+					retval = TRUE;
+				} else if (start + length > 0x10000) {
+					// Check that the end address is within 64kB
+					fprintf(stderr, "Start %i + length %i too large, generating error 3\n", start, length);
+					ERROR_INV3();
+					retval = TRUE;
+				}
+			}
+		}
+
+		if (!retval) {
+			if (!found) {
+				/* Add a file extension if one hasn't already been affixed and it is not a memory save*/
+				if (zx80) {
+					/* Add a file extension if one hasn't already been affixed */
+					if (sdl_filetype_casecmp(fullpath, ".o") != 0 &&
+						sdl_filetype_casecmp(fullpath, ".80") != 0)
+						strcat(fullpath, ".o");
+				}
+				else {
+					if (sdl_filetype_casecmp(filename, ".p") != 0 &&
+						sdl_filetype_casecmp(filename, ".81") != 0)
+						strcat(filename, ".p");
+				}
+			}
+			else {
+				--extend;
+				*extend = 0;
 			}
 
 			/* Add program name */
 			strcat(fullpath, filename);
-		#endif
-		if (!retval) {
-			/* Add a file extension if one hasn't already been affixed */
-			if (sdl_filetype_casecmp(fullpath, ".o") != 0 &&
-				sdl_filetype_casecmp(fullpath, ".80") != 0)
-				strcat(fullpath, ".o");
-		}
-	} else if (method == SAVE_FILE_METHOD_STATESAVE) {
-		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
-			strcpy(fullpath, LOCAL_DATA_DIR);
-		#else
-			strcpy(fullpath, getenv ("HOME"));
+		} else if (method == SAVE_FILE_METHOD_STATESAVE) {
+			/* Build a path to the currently loaded program's save state folder */
+			#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+				strcpy(fullpath, LOCAL_DATA_DIR);
+			#else
+				strcpy(fullpath, getenv ("HOME"));
+				strcatdelimiter(fullpath);
+				strcat(fullpath, LOCAL_DATA_DIR);
+			#endif
 			strcatdelimiter(fullpath);
-			strcat(fullpath, LOCAL_DATA_DIR);
-		#endif
-		strcatdelimiter(fullpath);
-		strcat(fullpath, LOCAL_SAVSTA_DIR);
-		strcatdelimiter(fullpath);
-		fullpath[index = strlen(fullpath)] = 
-			tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
-		fullpath[++index] = 0;
-		strcatdelimiter(fullpath);
-		strcat(fullpath, file_dialog_basename(load_file_dialog.loaded));
-		strcatdelimiter(fullpath);
-		/* Form an appropriate filename */
-		if (*sdl_emulator.model == MODEL_ZX80) {
-			sprintf(filename, "savsta%i.sso", parameter + 1);
-		} else if (*sdl_emulator.model == MODEL_ZX81) {
-			sprintf(filename, "savsta%i.ssp", parameter + 1);
+			strcat(fullpath, LOCAL_SAVSTA_DIR);
+			strcatdelimiter(fullpath);
+			fullpath[index = strlen(fullpath)] =
+				tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
+			fullpath[++index] = 0;
+			strcatdelimiter(fullpath);
+			strcat(fullpath, file_dialog_basename(load_file_dialog.loaded));
+			strcatdelimiter(fullpath);
+			/* Form an appropriate filename */
+			if (*sdl_emulator.model == MODEL_ZX80) {
+				sprintf(filename, "savsta%i.sso", parameter + 1);
+			} else if (*sdl_emulator.model == MODEL_ZX81) {
+				sprintf(filename, "savsta%i.ssp", parameter + 1);
+			}
+			/* Append filename to fullpath */
+			strcat(fullpath, filename);
 		}
-		/* Append filename to fullpath */
-		strcat(fullpath, filename);
-	}
 
-	if (!retval) {
 		/* Attempt to open the file */
-		if ((fp = fopen(fullpath, "wb")) != NULL) {
+		if ((!retval) &&
+		    ((fp = fopen(fullpath, "wb")) != NULL)) {
 			if (method == SAVE_FILE_METHOD_STATESAVE) {
 				/* Printer variables are reinitialised when a new file
 				 * is opened on output so saving them is futile.
@@ -370,39 +409,46 @@ int sdl_save_file(int parameter, int method) {
 				/* 65654/0x10076 bytes to here for 2.1.7 */
 
 			} else {
-				/* Write up to and including E_LINE */
-				if (*sdl_emulator.model == MODEL_ZX80) {
-					fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
-				} else if (*sdl_emulator.model == MODEL_ZX81) {
-					fwrite(mem + 0x4009, 1, (mem[0x4015] << 8 | mem[0x4014]) - 0x4009, fp);
+				if (found) {
+					fwrite(mem + start, 1, length, fp);
 				}
-				/* Copy fullpath across to the load file dialog as
-				 * then we have a record of what was last saved */
-				strcpy(load_file_dialog.loaded, fullpath);
+				else {
+					/* Write up to and including E_LINE */
+					if (*sdl_emulator.model == MODEL_ZX80) {
+						fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
+					} else if (*sdl_emulator.model == MODEL_ZX81) {
+						fwrite(mem + 0x4009, 1, (mem[0x4015] << 8 | mem[0x4014]) - 0x4009, fp);
+					}
+					/* Copy fullpath across to the load file dialog as
+					* then we have a record of what was last saved */
+					strcpy(load_file_dialog.loaded, fullpath);
+				}
 			}
 			/* Close the file now as we've finished with it */
 			fclose(fp);
 		} else {
 			retval = TRUE;
-			/* Warn the user via the GUI that the save failed */
-			if (method == SAVE_FILE_METHOD_STATESAVE) {
-				strcpy(notification.title, "Save State");
-			} else {
-				strcpy(notification.title, "Save");
-			}
-			strcpy(notification.text, "Failed");
-			notification.timeout = NOTIFICATION_TIMEOUT_1250;
-			notification_show(NOTIFICATION_SHOW, &notification);
 		}
 	}
 
-	if (!retval) {
+	if (retval)
+	{
+		/* Warn the user via the GUI that the save failed */
+		if (method == SAVE_FILE_METHOD_STATESAVE) {
+			strcpy(notification.title, "Save State");
+		} else {
+			strcpy(notification.title, "Save");
+		}
+		strcpy(notification.text, "Failed");
+		notification.timeout = NOTIFICATION_TIMEOUT_1250;
+		notification_show(NOTIFICATION_SHOW, &notification);
+	}
+	else {
 		if (method != SAVE_FILE_METHOD_STATESAVE) {
 			/* Refresh the load file dialog's directory list */
 			load_file_dialog_dirlist_populate(TRUE);
 		}
 	}
-
 	return retval;
 }
 
@@ -421,12 +467,14 @@ int sdl_save_file(int parameter, int method) {
  *           else FALSE */
 
 int sdl_load_file(int parameter, int method) {
-	char fullpath[256], filename[256];
+	char fullpath[256] = {0}, filename[256];
 	struct Notification notification;
 	int retval = FALSE;
 	int count, index;
 	int ramsize;
 	FILE *fp;
+  	char *extend = 0;
+  	int start = -1;
 
 	/* If requested, read and set the preset method instead */
 	if (method == LOAD_FILE_METHOD_DETECT) {
@@ -496,7 +544,7 @@ int sdl_load_file(int parameter, int method) {
 		}
 	} else if (method == LOAD_FILE_METHOD_STATELOAD) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 			strcpy(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
@@ -523,17 +571,43 @@ int sdl_load_file(int parameter, int method) {
 	}
 
 	if (!retval) {
-		for (count = 0; count < 2; count++) {
-			if (method == LOAD_FILE_METHOD_NAMEDLOAD) {
-				/* Attempt to open the file firstly in lowercase and then 
-				 * in uppercase as program files are obtained in either */
+		if (method == LOAD_FILE_METHOD_NAMEDLOAD) {
+			/* Get translated program name */
+			strcpy(filename, strzx81_to_ascii(parameter));
+      		extend = strrchr(filename, ';');
+      		if (extend) {
+        		// Terminate the file name
+        *		extend++ = '\0';
 
-				/* Get translated program name */
-				strcpy(filename, strzx81_to_ascii(parameter));
+        		// Attempt to read the start address
+        		if (!parseNumber(extend, 0, 65535, 0, (unsigned int*)&start))
+        		{
+         			fprintf(stderr, "Mem load address parse error, generating error 1\n");
+          			ERROR_INV1();
+          			retval = TRUE;
+				}
+				else if ((start < 0x2000) ||
+					     ((start < 0x4000) && (!LowRAM)) ||
+					     (start >= (0x4000 + sdl_emulator.ramsize * 0x400))) {
+						// start address has to be in existant RAM
+						ERROR_INV3();
+						retval = TRUE;
+				}
+			}
+			else {
 				/* Add a file extension if one hasn't already been affixed */
 				if (sdl_filetype_casecmp(filename, ".p") != 0 &&
 					sdl_filetype_casecmp(filename, ".81") != 0)
 					strcat(filename, ".p");
+			}
+		}
+	}
+
+	if (!retval) {
+		for (count = 0; count < 2; count++) {
+			if (method == LOAD_FILE_METHOD_NAMEDLOAD) {
+				/* Attempt to open the file firstly in lowercase and then
+				 * in uppercase as program files are obtained in either */
 
 				/* Convert filename to uppercase on second attempt */
 				if (count == 1) strcpy(filename, strtoupper(filename));
@@ -698,9 +772,9 @@ int sdl_load_file(int parameter, int method) {
 							mem[sp + 1] = 0x06;
 							mem[sp + 2] = 0x00;
 							mem[sp + 3] = 0x3e;
-							/* Now override if RAM configuration changes things
-							 * (there's a possibility these changes are unimportant) */
-							if (sdl_emulator.ramsize >= 4 && 0) {
+							/* Now override if RAM configuration changes things,
+							   without these changes Multi-scroll sometimes fail to start */
+							if (sdl_emulator.ramsize >= 4) {
 								d = 0x43; h = 0x43;
 								a1 = 0xec; b1 = 0x81; c1 = 0x02;
 								radjust = 0xa9;
@@ -717,21 +791,27 @@ int sdl_load_file(int parameter, int method) {
 							mem[0x4008] = 0xff;				/* PPC hi */
 						}
 					}
-
-					/* Read in up to 48K of data */
 					if (sdl_emulator.ramsize > 48) {
 						ramsize = 48;
 					} else {
 						ramsize = sdl_emulator.ramsize;
 					}
-					if (*sdl_emulator.model == MODEL_ZX80) {
-						fread(mem + 0x4000, 1, ramsize * 1024, fp);
-					} else if (*sdl_emulator.model == MODEL_ZX81) {
-						fread(mem + 0x4009, 1, ramsize * 1024 - 9, fp);
+
+					if (start < 0) {
+						/* Read in up to 48K of data */
+						if (*sdl_emulator.model == MODEL_ZX80) {
+							fread(mem + 0x4000, 1, ramsize * 1024, fp);
+						} else if (*sdl_emulator.model == MODEL_ZX81) {
+							fread(mem + 0x4009, 1, ramsize * 1024 - 9, fp);
+						}
+						/* Copy fullpath across to the load file dialog as
+						* then we have a record of what was last loaded */
+						strcpy(load_file_dialog.loaded, fullpath);
 					}
-					/* Copy fullpath across to the load file dialog as
-					 * then we have a record of what was last loaded */
-					strcpy(load_file_dialog.loaded, fullpath);
+					else {
+						/* Memory load */
+						fread(mem + start, 1, ramsize * 1024 + 0x4000 - start, fp);
+					}
 				}
 				/* Close the file now as we've finished with it */
 				fclose(fp);
@@ -1057,8 +1137,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 				*dirlist + *dirlist_sizeof * (count + 1)) > 0) {
 				swapped = TRUE;
 				strcpy(swap, *dirlist + *dirlist_sizeof * (count + 1));
-				strcpy(*dirlist + *dirlist_sizeof * (count + 1),
-					*dirlist + *dirlist_sizeof * count);
+				memmove(*dirlist + *dirlist_sizeof * (count + 1),
+					*dirlist + *dirlist_sizeof * count,
+					strlen(*dirlist + *dirlist_sizeof * count) + 1);
 				strcpy(*dirlist + *dirlist_sizeof * count, swap);
 			}
 		}
@@ -1141,6 +1222,27 @@ char *strzx81_to_ascii(int memaddr) {
 	} while (mem[memaddr++] < 0x80);
 
 	return translated;
+}
+
+// input: string to be parsed for an unsigned number
+// Min: Minimum allowed value
+// Max: Maximum allowed value
+// Term: Required terminating character
+// Out: Contains value read if successful
+// Return value: True if value parsed successfully, false otherwise
+bool parseNumber(const char* input,
+                 unsigned int min,
+                 unsigned int max,
+                 char term,
+                 unsigned int* out)
+{
+  *out = 0;
+
+  while ((*input >= '0') && (*input <= '9') && (*out <= max))
+  {
+    *out = *out * 10 + *input++ - '0';
+  }
+  return ((*input == term) && (*out >= min) && (*out <= max));
 }
 
 /***************************************************************************
@@ -1299,5 +1401,3 @@ int get_filename_next_highest(char *dir, char *format) {
 
 	return retval;
 }
-
-

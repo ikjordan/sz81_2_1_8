@@ -21,7 +21,7 @@
 /* Defines */
 
 /* Variables */
-unsigned char vga_graphmemory[800 * 600];
+unsigned char vga_graphmemory[DISPLAY_F_WIDTH * DISPLAY_F_HEIGHT];
 
 /* \x1 means that a value needs to be placed here.
  * \x2 means to invert the colours.
@@ -238,9 +238,9 @@ int sdl_video_setmode(void) {
 	if (video.xres <= 256 * video.scale) {
 		sdl_emulator.xoffset = 0 - 32 * video.scale;
 	} else {
-		sdl_emulator.xoffset = (video.xres - 320 * video.scale) / 2;
+		sdl_emulator.xoffset = (video.xres - disp.width * video.scale) / 2;
 	}
-	sdl_emulator.yoffset = (video.yres - 240 * video.scale) / 2;
+	sdl_emulator.yoffset = (video.yres - disp.height * video.scale) / 2;
 
 	#ifdef SDL_DEBUG_VIDEO
 		printf("%s: sdl_emulator.xoffset=%i sdl_emulator.yoffset=%i\n", 
@@ -312,12 +312,13 @@ unsigned char *vga_getgraphmem(void) {
  * hotspots will require overlaying */
 
 void sdl_video_update(void) {
-	Uint32 colourRGB, fg_colourRGB, bg_colourRGB, colour0RGB, colour1RGB;
-	int srcx, srcy, desx, desy, srcw, count, offset, invertcolours;
-	Uint32 fg_colour, bg_colour, *screen_pixels_32;
+	static bool first = true;
+	static Uint32 fg_colourRGB, bg_colourRGB, colour0RGB, colour1RGB;
+	static Uint32 fg_colour, bg_colour;
+	int srcx, srcy, desx, desy, count, offset, invertcolours;
+	Uint32 colourRGB;
 	int xpos, ypos, xmask, ybyte;
 	SDL_Surface *renderedtext;
-	Uint16 *screen_pixels_16;
 	char text[33], *direntry;
 	SDL_Rect dstrect;
 	#ifdef SDL_DEBUG_FONTS
@@ -339,25 +340,28 @@ void sdl_video_update(void) {
 	/* Monitor and manage component states */
 	sdl_component_executive();
 
-	/* Prepare the colours we shall be using (these remain unchanged throughout) */
-	if (!sdl_emulator.invert) {
-		fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
-			colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
-		bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
-			colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
-		colour0RGB = fg_colourRGB;
-		colour1RGB = bg_colourRGB;
-		fg_colour = colours.emu_fg;
-		bg_colour = colours.emu_bg;
-	} else {
-		fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
-			colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
-		bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
-			colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
-		colour0RGB = bg_colourRGB;
-		colour1RGB = fg_colourRGB;
-		fg_colour = colours.emu_bg;
-		bg_colour = colours.emu_fg;
+	if (first)
+	{
+		/* Prepare the colours we shall be using (these remain unchanged throughout) */
+		if (!sdl_emulator.invert) {
+			fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
+				colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
+			bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
+				colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
+			colour0RGB = fg_colourRGB;
+			colour1RGB = bg_colourRGB;
+			fg_colour = colours.emu_fg;
+			bg_colour = colours.emu_bg;
+		} else {
+			fg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_bg >> 16 & 0xff,
+				colours.emu_bg >> 8 & 0xff, colours.emu_bg & 0xff);
+			bg_colourRGB = SDL_MapRGB(video.screen->format, colours.emu_fg >> 16 & 0xff,
+				colours.emu_fg >> 8 & 0xff, colours.emu_fg & 0xff);
+			colour0RGB = bg_colourRGB;
+			colour1RGB = fg_colourRGB;
+			fg_colour = colours.emu_bg;
+			bg_colour = colours.emu_fg;
+		}
 	}
 
 	/* Should everything be redrawn? */
@@ -376,73 +380,116 @@ void sdl_video_update(void) {
 	}
 
 	/* Is the emulator's output being rendered? */
-	if (sdl_emulator.state) {
+	if (sdl_emulator.state) 
+	{
+		unsigned char* pvga = vga_graphmemory;
+		int offset = 0;
+
 		if (SDL_MUSTLOCK(video.screen)) SDL_LockSurface(video.screen);
 
-		screen_pixels_16 = video.screen->pixels;
-		screen_pixels_32 = video.screen->pixels;
+		if (video.screen->format->BitsPerPixel == 16)
+		{
+			Uint16* screen_pixels = video.screen->pixels;
 
-		/* Set-up destination y coordinates */
-		desy = sdl_emulator.yoffset;
-
-		for (srcy = 0; srcy < 240; srcy++) {
-
-			/* [Re]set-up x coordinates and src width */
-			if (video.xres < 320 * video.scale) {
-				srcx = abs(sdl_emulator.xoffset / video.scale);
-				if (*sdl_emulator.model == MODEL_ZX80 && video.xres < 256 * video.scale)
-					srcx += 8 * 2;	/* The emulator shifts it right 2 chars! */
-				srcw = video.xres / video.scale + srcx; desx = 0;
-			} else {
-				srcx = 0;
-				srcw = 320; desx = sdl_emulator.xoffset;
-			}
-
-			for (;srcx < srcw; srcx++) {
-				/* Get 8 bit source pixel and convert to RGB */
-				if (vga_graphmemory[srcy * 320 + srcx] == 0) {
-					colourRGB = colour0RGB;
-				} else {
-					colourRGB = colour1RGB;
-				}
-				if (video.screen->format->BitsPerPixel == 16) {
-					/* Write the destination pixel[s] */
-					screen_pixels_16[desy * video.xres + desx] = colourRGB;
-					if (video.scale > 1) {
-						/* x2 scaling */
-						screen_pixels_16[desy * video.xres + desx + 1] = colourRGB;
-						screen_pixels_16[(desy + 1) * video.xres + desx] = colourRGB;
-						screen_pixels_16[(desy + 1) * video.xres + desx + 1] = colourRGB;
-						if (video.scale > 2) {
-							/* x3 scaling */
-							screen_pixels_16[desy * video.xres + desx + 2] = colourRGB;
-							screen_pixels_16[(desy + 1) * video.xres + desx + 2] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx + 1] = colourRGB;
-							screen_pixels_16[(desy + 2) * video.xres + desx + 2] = colourRGB;
-						}
+			if (video.scale > 2)
+			{
+				int line1 = disp.width * 3;
+				int line2 = disp.width * 6;
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
 					}
-				} else if (video.screen->format->BitsPerPixel == 32) {
-					/* Write the destination pixel[s] */
-					screen_pixels_32[desy * video.xres + desx] = colourRGB;
-					if (video.scale > 1) {
-						/* x2 scaling */
-						screen_pixels_32[desy * video.xres + desx + 1] = colourRGB;
-						screen_pixels_32[(desy + 1) * video.xres + desx] = colourRGB;
-						screen_pixels_32[(desy + 1) * video.xres + desx + 1] = colourRGB;
-						if (video.scale > 2) {
-							/* x3 scaling */
-							screen_pixels_32[desy * video.xres + desx + 2] = colourRGB;
-							screen_pixels_32[(desy + 1) * video.xres + desx + 2] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx + 1] = colourRGB;
-							screen_pixels_32[(desy + 2) * video.xres + desx + 2] = colourRGB;
-						}
+					offset += line2;
+				}
+			} else if (video.scale > 1)
+			{
+				int line = disp.width * 2;
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+					}
+					offset += line;
+				}
+			} else
+			{
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset++] = colourRGB;
 					}
 				}
-				desx += video.scale;
 			}
-			desy += video.scale;
+		}
+		else
+		{
+			Uint32* screen_pixels = video.screen->pixels;
+
+			if (video.scale > 2)
+			{
+				int line1 = disp.width * 3;
+				int line2 = disp.width * 6;
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line1 + offset] = colourRGB;
+						screen_pixels[line2 + offset++] = colourRGB;
+					}
+					offset += line2;
+				}
+			} else if (video.scale > 1)
+			{
+				int line = disp.width * 2;
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+						screen_pixels[offset] = colourRGB;
+						screen_pixels[line + offset++] = colourRGB;
+					}
+					offset += line;
+				}
+			} else
+			{
+				for (srcy = 0; srcy < disp.height; srcy++)
+				{
+					for (srcx = 0 ;srcx < disp.width; srcx++)
+					{
+						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+						screen_pixels[offset++] = colourRGB;
+					}
+				}
+			}
 		}
 
 		if (SDL_MUSTLOCK(video.screen)) SDL_UnlockSurface(video.screen);
@@ -1506,13 +1553,15 @@ void cycle_resolutions(void) {
 		}
 	#else
 		/* 960x720 | 640x480 | 320x240 */
-		if (video.xres == 960) {
-			video.xres = 640; video.yres = 480; video.scale = 2;
-		} else if (video.xres == 640) {
-			video.xres = 320; video.yres = 240; video.scale = 1;
+		if (video.xres == disp.width * 3) {
+			video.scale = 2;
+		} else if (video.xres == disp.width * 2) {
+			video.scale = 1;
 		} else {
-			video.xres = 960; video.yres = 720; video.scale = 3;
+			video.scale = 3;
 		}
+		video.xres = disp.width * video.scale;
+		video.yres = disp.height * video.scale;
 	#endif
 }
 
@@ -1637,7 +1686,7 @@ void save_screenshot(void) {
 	char fullpath[256], filename[256];
 	int nextnum;
 
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(fullpath, LOCAL_DATA_DIR);
 	#else
 		strcpy(fullpath, getenv ("HOME"));

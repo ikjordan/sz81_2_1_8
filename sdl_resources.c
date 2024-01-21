@@ -68,7 +68,7 @@ void sdl_zxprinter_init(void) {
 	char unique[32];
 	int	nextnum;
 
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(zxprinter.filename, LOCAL_DATA_DIR);
 	#else
 		strcpy(zxprinter.filename, getenv ("HOME"));
@@ -108,7 +108,7 @@ void local_data_dir_init(void) {
 	
 	/* Create local data directory structure whilst ignoring errors */
 	for (count = 0; count < 5; count++) {
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 			strcpy(foldername, LOCAL_DATA_DIR);
 		#else
 			strcpy(foldername, getenv ("HOME"));
@@ -152,7 +152,7 @@ void sdl_rcfile_read(void) {
 	char read_version[16];
 	FILE *fp;
 
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
 		strcpy(rcfile.filename, LOCAL_DATA_DIR);
 	#else
 		strcpy(rcfile.filename, getenv ("HOME"));

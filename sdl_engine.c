@@ -260,7 +260,7 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				fprintf (stdout,
 					"z81 2.1 - copyright (C) 1994-2004 Ian Collier and Russell Marks.\n"
 					"sz81 " VERSION " (unofficial, see NEWS) - copyright (C) 2007-2011 Thunor and Chris Young.\n\n"
-					"usage: sz81 [-fhw] [-XRESxYRES] [filename.{o|p|80|81}]\n\n"
+					"usage: sz81 [-fhwpbncrl] [-vTOL] [-XRESxYRES] [filename.{o|p|80|81}]\n\n"
 					"  -f  run the program fullscreen\n"
 					"  -h  this usage help\n"
 					"  -w  run the program in a window\n"

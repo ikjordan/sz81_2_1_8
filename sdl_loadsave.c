@@ -814,7 +814,7 @@ int sdl_load_file(int parameter, int method) {
 						fseek(fp, 0, SEEK_SET);
 
 						/* Do we need to skip the start? */
-						int ramstart = (LowRAM) ? 0x2000 : 4000;
+						int ramstart = (LowRAM) ? 0x2000 : 0x4000;
 						int offset = 0;
 						int length = (int)size;
 
@@ -827,8 +827,8 @@ int sdl_load_file(int parameter, int method) {
 							// Make sure don't read past end of memory
 							if (LowRAM) ramsize += 8;
 
-							if ((start + length) > ramsize * 1024) {
-								length -= ((start + length) - ramsize * 1024);
+							if ((start + length) > (ramsize * 1024 + ramstart)) {
+								length -= ((start + length) - (ramsize * 1024 + ramstart));
 							}
 
 							if (length > 0) {
@@ -838,8 +838,8 @@ int sdl_load_file(int parameter, int method) {
 						}
 
 						// Report error if nothing was loaded
-						if (length <=0) {
-         					fprintf(stderr, "No memory to load, generating error 3\n", start);
+						if (length <= 0) {
+         					fprintf(stderr, "No memory to load, generating error 3\n");
 							ERROR_INV3();
 							retval = TRUE;
 						}

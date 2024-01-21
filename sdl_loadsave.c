@@ -586,10 +586,9 @@ int sdl_load_file(int parameter, int method) {
           			ERROR_INV1();
           			retval = TRUE;
 				}
-				else if ((start < 0x2000) ||
-					     ((start < 0x4000) && (!LowRAM)) ||
-					     (start >= (0x4000 + sdl_emulator.ramsize * 0x400))) {
-						// start address has to be in existant RAM
+				else if (start >= (0x4000 + sdl_emulator.ramsize * 0x400)) {
+						// start address cannot be greater than top of RAM
+         				fprintf(stderr, "Mem load address %i higher than top of RAM, generating error 3\n", start);
 						ERROR_INV3();
 						retval = TRUE;
 				}
@@ -809,8 +808,41 @@ int sdl_load_file(int parameter, int method) {
 						strcpy(load_file_dialog.loaded, fullpath);
 					}
 					else {
-						/* Memory load */
-						fread(mem + start, 1, ramsize * 1024 + 0x4000 - start, fp);
+						// Find the size of the file
+						fseek(fp, 0, SEEK_END); // seek to end of file
+						long size = ftell(fp); // get current file pointer
+						fseek(fp, 0, SEEK_SET);
+
+						/* Do we need to skip the start? */
+						int ramstart = (LowRAM) ? 0x2000 : 4000;
+						int offset = 0;
+						int length = (int)size;
+
+						if (start < ramstart) {
+							offset = ramstart - start;
+							start = ramstart;
+							length -= offset;
+						}
+						if (length > 0) {
+							// Make sure don't read past end of memory
+							if (LowRAM) ramsize += 8;
+
+							if ((start + length) > ramsize * 1024) {
+								length -= ((start + length) - ramsize * 1024);
+							}
+
+							if (length > 0) {
+								if (offset) fseek(fp, offset, SEEK_SET);
+								fread(mem + start, 1, length, fp);
+							}
+						}
+
+						// Report error if nothing was loaded
+						if (length <=0) {
+         					fprintf(stderr, "No memory to load, generating error 3\n", start);
+							ERROR_INV3();
+							retval = TRUE;
+						}
 					}
 				}
 				/* Close the file now as we've finished with it */

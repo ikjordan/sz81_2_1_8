@@ -72,7 +72,6 @@ int adjustStartX = 0;
 bool useNTSC = false;
 bool chr128 = false;
 bool centreScreen = false;
-bool configLowRAM = false;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
 int vertTol = 100;
@@ -406,17 +405,19 @@ for(f=0;f<16;f++)
 /* RAM setup */
 #ifdef SZ81	/* Added by Thunor */
 ramsize=sdl_emulator.ramsize;
-if (ramsize > 48)
+
+useWRX = (sdl_emulator.wrx != HIRESDISABLED);
+useWRX = useWRX || (ramsize < 3);
+
+if ((ramsize == 56) || (ramsize == 40) || (ramsize == 24))
 {
-  ramsize = 48;
+  ramsize -= 8;
   LowRAM = true;
 }
 else
 {
-  LowRAM = (configLowRAM || chr128 || useQSUDG);
+  LowRAM = chr128 || useQSUDG;
 }
-useWRX = (sdl_emulator.wrx != HIRESDISABLED);
-useWRX = useWRX || (ramsize < 3);
 #else
 ramsize=16;
 if(unexpanded)

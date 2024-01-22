@@ -704,6 +704,9 @@ int main(int argc, char *argv[]) {
 		char* p = strrchr(cwd,'/');
 		if (p) *(p)=0;
 		chdir(cwd);
+#ifdef DEBUG_LOAD_SAVE
+		fprintf(stderr, "Set cwd %s\n", cwd);
+#endif
 	}
 	#endif
 

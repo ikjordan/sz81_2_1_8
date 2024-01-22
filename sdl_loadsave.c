@@ -51,6 +51,9 @@ void fread_unsigned_short_little_endian(unsigned short *target, FILE *fp);
 void fread_int_little_endian(int *target, FILE *fp);
 void fread_unsigned_long_little_endian(unsigned long *target, FILE *fp);
 
+#ifdef PLATFORM_RISCOS
+char* riscos_convert_filename(char* filename);
+#endif
 
 /***************************************************************************
  * Load File Dialog Directory List Populate                                *
@@ -574,6 +577,9 @@ int sdl_load_file(int parameter, int method) {
 		if (method == LOAD_FILE_METHOD_NAMEDLOAD) {
 			/* Get translated program name */
 			strcpy(filename, strzx81_to_ascii(parameter));
+#ifdef DEBUG_LOAD_SAVE
+			fprintf(stderr, "Named load: %s\n", filename);
+#endif
       		extend = strrchr(filename, ';');
       		if (extend) {
         		// Terminate the file name
@@ -592,12 +598,18 @@ int sdl_load_file(int parameter, int method) {
 						ERROR_INV3();
 						retval = TRUE;
 				}
+#ifdef PLATFORM_RISCOS
+				strcpy(filename, riscos_convert_filename(filename));
+#endif
 			}
 			else {
 				/* Add a file extension if one hasn't already been affixed */
 				if (sdl_filetype_casecmp(filename, ".p") != 0 &&
 					sdl_filetype_casecmp(filename, ".81") != 0)
 					strcat(filename, ".p");
+#ifdef PLATFORM_RISCOS
+				strcpy(filename, riscos_convert_filename(filename));
+#endif
 			}
 		}
 	}
@@ -628,6 +640,9 @@ int sdl_load_file(int parameter, int method) {
 			}
 
 			/* Attempt to open the file */
+#ifdef DEBUG_LOAD_SAVE
+			fprintf(stderr, "fopen: %s\n", fullpath);
+#endif
 			if ((fp = fopen(fullpath, "rb")) != NULL) {
 				if (method == LOAD_FILE_METHOD_STATELOAD) {
 					/* Printer variables are reinitialised when a new file
@@ -809,10 +824,13 @@ int sdl_load_file(int parameter, int method) {
 					}
 					else {
 						// Find the size of the file
-						fseek(fp, 0, SEEK_END); // seek to end of file
-						long size = ftell(fp); // get current file pointer
+						fseek(fp, 0, SEEK_END);  // seek to end of file
+						long size = ftell(fp);   // get current file pointer
 						fseek(fp, 0, SEEK_SET);
-
+						int orgstart = start;
+#ifdef DEBUG_LOAD_SAVE
+						fprintf(stderr, "Request to load %i bytes to address %i from %s\n", (int)size, start, fullpath);
+#endif
 						/* Do we need to skip the start? */
 						int ramstart = (LowRAM) ? 0x2000 : 0x4000;
 						int offset = 0;
@@ -834,12 +852,16 @@ int sdl_load_file(int parameter, int method) {
 							if (length > 0) {
 								if (offset) fseek(fp, offset, SEEK_SET);
 								fread(mem + start, 1, length, fp);
+#ifdef DEBUG_LOAD_SAVE
+								fprintf(stderr, "Load %i bytes to address %i from %s\n", length, start, fullpath);
+#endif
 							}
 						}
 
 						// Report error if nothing was loaded
 						if (length <= 0) {
-         					fprintf(stderr, "No memory to load, generating error 3\n");
+         					fprintf(stderr, "Error 3, No memory to load. Load Addr %i Length %i Mem Start %i\n",
+							        orgstart, (int)size, ramstart);
 							ERROR_INV3();
 							retval = TRUE;
 						}
@@ -849,9 +871,13 @@ int sdl_load_file(int parameter, int method) {
 				fclose(fp);
 				break;
 			} else {
-				if (!(method == LOAD_FILE_METHOD_NAMEDLOAD && count == 0)) {
+				if (!(method == LOAD_FILE_METHOD_NAMEDLOAD)){
 					retval = TRUE;
 					break;
+				}
+				else if (count == 1) {
+					ERROR_D();
+					retval = TRUE;
 				}
 			}
 		}
@@ -873,6 +899,9 @@ int sdl_load_file(int parameter, int method) {
 				notification.timeout = NOTIFICATION_TIMEOUT_1250;
 				notification_show(NOTIFICATION_SHOW, &notification);
 			}
+			//if (LOAD_FILE_METHOD_NAMEDLOAD && (start < 0)) {
+			//	ERROR_D();
+			//}
 		}
 	}
 
@@ -1044,6 +1073,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 	/* Record the current working directory before changing it to dir
 	 * (I've found that stat doesn't work unless the dir is changed) */
 	strcpy(cwd, ""); getcwd(cwd, 256); cwd[255] = 0; chdir(dir);
+#ifdef DEBUG_LOAD_SAVE
+	fprintf(stderr, "chdir: %s\n", cwd);
+#endif
 
 	/* NOTE TO PORTERS: eventually you'll hit root ('/' on *nix, ':' on
 	 * __amigaos4__, '\' on _WIN32 and as I'm developing this on Linux I
@@ -1180,6 +1212,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 
 	/* Restore the current working directory */
 	chdir(cwd);
+#ifdef DEBUG_LOAD_SAVE
+	fprintf(stderr, "chdir: %s\n", cwd);
+#endif
 }
 
 /***************************************************************************
@@ -1433,3 +1468,40 @@ int get_filename_next_highest(char *dir, char *format) {
 
 	return retval;
 }
+
+#ifdef PLATFORM_RISCOS
+char* riscos_convert_filename(char* filename)
+{
+	// If there is an extension, then need to move to front
+	// Is there a leading '/'
+	char* slash = strrchr(filename, '/');
+
+	// Is there an extension
+	char* dot = strrchr(filename, '.');
+	if (dot)
+	{
+		char* start = filename;
+		char temp[100];
+		if (slash)
+		{
+			*slash = 0;
+			strcpy(temp, start);
+			strcat(temp,"/");
+			start = slash + 1;
+		}
+		else
+		{
+			temp[0] = 0;
+		}
+		*dot = 0;
+		strcat(temp, dot+1);
+		strcat(temp, "/");
+		strcat(temp, start);
+		strcpy(filename, temp);
+#ifdef DEBUG_LOAD_SAVE
+		fprintf(stderr, "Converted: %s\n", filename);
+#endif
+	}
+	return filename;
+}
+#endif

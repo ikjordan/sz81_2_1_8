@@ -111,7 +111,6 @@ extern bool useNTSC;
 /* Variable set from command line options*/
 extern bool chr128;
 extern bool centreScreen;
-extern bool configLowRAM;
 extern bool fullDisplay;
 extern bool fiveSevenSix;
 extern int  vertTol;

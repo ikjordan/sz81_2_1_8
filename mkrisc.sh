@@ -15,12 +15,5 @@ cd ../h
 for v in *.h ; do mv "$v"  "$(basename "$v" .h)"; done
 cd ..
 cp ../RiscOS/* .
-mkdir -p p
-cp ../games-etc/*.81 p
-cp ../games-etc/*.p p
-cd p
-for v in *.p ; do mv "$v"  "$(basename "$v" .p)"; done
-for v in *.81 ; do mv "$v"  "$(basename "$v" .81)"; done
-cd ..
 mkdir -p data
 cp ../data/* data

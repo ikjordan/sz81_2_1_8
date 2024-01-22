@@ -689,6 +689,9 @@ void check_events(void) {
 	extern "C"
 #endif
 
+#ifdef PLATFORM_RISCOS
+char riscos_prog_dir[256];
+#endif
 int main(int argc, char *argv[]) {
 	int retval = 0;
 
@@ -696,19 +699,18 @@ int main(int argc, char *argv[]) {
 		amiga_open_libs();
 	#endif
 
-	#ifdef PLATFORM_RISCOS
+#ifdef PLATFORM_RISCOS
 	if (argc)
 	{
-		char cwd[256];
-		strcpy(cwd, argv[0]);
-		char* p = strrchr(cwd,'/');
+		strcpy(riscos_prog_dir, argv[0]);
+		char* p = strrchr(riscos_prog_dir,'/');
 		if (p) *(p)=0;
-		chdir(cwd);
+		chdir(riscos_prog_dir);
 #ifdef DEBUG_LOAD_SAVE
-		fprintf(stderr, "Set cwd %s\n", cwd);
+		fprintf(stderr, "Set cwd %s\n", riscos_prog_dir);
 #endif
 	}
-	#endif
+#endif
 
 	/* Initialise sz81 variables, SDL, WM icon, local data dir */
 	retval = sdl_init();

@@ -52,7 +52,7 @@ void fread_int_little_endian(int *target, FILE *fp);
 void fread_unsigned_long_little_endian(unsigned long *target, FILE *fp);
 
 #ifdef PLATFORM_RISCOS
-char* riscos_convert_filename(char* filename);
+extern char riscos_prog_dir[];
 #endif
 
 /***************************************************************************
@@ -104,8 +104,12 @@ int save_state_dialog_slots_populate(void) {
 		save_state_dialog.slots[count] = 0;
 
 	/* Build a path to the currently loaded program's save state folder */
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
 		strcpy(foldername, LOCAL_DATA_DIR);
+	#elif defined(PLATFORM_RISCOS)
+		strcpy(foldername, riscos_prog_dir);
+		strcatdelimiter(foldername);
+		strcat(foldername, LOCAL_DATA_DIR);
 	#else
 		strcpy(foldername, getenv ("HOME"));
 		strcatdelimiter(foldername);
@@ -283,9 +287,9 @@ int sdl_save_file(int parameter, int method) {
 				/* Add a file extension if one hasn't already been affixed and it is not a memory save*/
 				if (zx80) {
 					/* Add a file extension if one hasn't already been affixed */
-					if (sdl_filetype_casecmp(fullpath, ".o") != 0 &&
-						sdl_filetype_casecmp(fullpath, ".80") != 0)
-						strcat(fullpath, ".o");
+					if (sdl_filetype_casecmp(filename, ".o") != 0 &&
+						sdl_filetype_casecmp(filename, ".80") != 0)
+						strcat(filename, ".o");
 				}
 				else {
 					if (sdl_filetype_casecmp(filename, ".p") != 0 &&
@@ -303,8 +307,12 @@ int sdl_save_file(int parameter, int method) {
 		}
 	} else if (method == SAVE_FILE_METHOD_STATESAVE) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
 			strcpy(fullpath, LOCAL_DATA_DIR);
+		#elif defined(PLATFORM_RISCOS)
+			strcpy(fullpath, riscos_prog_dir);
+			strcatdelimiter(fullpath);
+			strcat(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
 			strcatdelimiter(fullpath);
@@ -495,9 +503,6 @@ int sdl_load_file(int parameter, int method) {
 			sdl_filetype_casecmp(sdl_com_line.filename, ".81") == 0))) {
 			/* Copy the filename to fullpath which we'll be using below */
 			strcpy(fullpath, sdl_com_line.filename);
-#ifdef PLATFORM_RISCOS
-			strcpy(fullpath, riscos_convert_filename(fullpath));
-#endif
 		} else {
 			fprintf(stderr, "%s: File type is incompatible with machine model.\n",
 				__func__);
@@ -544,17 +549,18 @@ int sdl_load_file(int parameter, int method) {
 				/* Add load_file_dialog.selected item */
 				strcat(fullpath, load_file_dialog.dirlist +
 					load_file_dialog.dirlist_selected * load_file_dialog.dirlist_sizeof);
-#ifdef PLATFORM_RISCOS
-				strcpy(fullpath, riscos_convert_filename(fullpath));
-#endif
 			#endif
 		} else {
 			retval = TRUE;
 		}
 	} else if (method == LOAD_FILE_METHOD_STATELOAD) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
 			strcpy(fullpath, LOCAL_DATA_DIR);
+		#elif defined(PLATFORM_RISCOS)
+			strcpy(fullpath, riscos_prog_dir);
+			strcatdelimiter(fullpath);
+			strcat(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
 			strcatdelimiter(fullpath);
@@ -577,9 +583,6 @@ int sdl_load_file(int parameter, int method) {
 		}
 		/* Append filename to fullpath */
 		strcat(fullpath, filename);
-#ifdef PLATFORM_RISCOS
-		strcpy(fullpath, riscos_convert_filename(fullpath));
-#endif
 	}
 
 	if (!retval) {
@@ -607,18 +610,12 @@ int sdl_load_file(int parameter, int method) {
 						ERROR_INV3();
 						retval = TRUE;
 				}
-#ifdef PLATFORM_RISCOS
-				strcpy(filename, riscos_convert_filename(filename));
-#endif
 			}
 			else {
 				/* Add a file extension if one hasn't already been affixed */
 				if (sdl_filetype_casecmp(filename, ".p") != 0 &&
 					sdl_filetype_casecmp(filename, ".81") != 0)
 					strcat(filename, ".p");
-#ifdef PLATFORM_RISCOS
-				strcpy(filename, riscos_convert_filename(filename));
-#endif
 			}
 		}
 	}
@@ -908,9 +905,6 @@ int sdl_load_file(int parameter, int method) {
 				notification.timeout = NOTIFICATION_TIMEOUT_1250;
 				notification_show(NOTIFICATION_SHOW, &notification);
 			}
-			//if (LOAD_FILE_METHOD_NAMEDLOAD && (start < 0)) {
-			//	ERROR_D();
-			//}
 		}
 	}
 
@@ -1477,40 +1471,3 @@ int get_filename_next_highest(char *dir, char *format) {
 
 	return retval;
 }
-
-#ifdef PLATFORM_RISCOS
-char* riscos_convert_filename(char* filename)
-{
-	// If there is an extension, then need to move to front
-	// Is there a leading '/'
-	char* slash = strrchr(filename, '/');
-
-	// Is there an extension
-	char* dot = strrchr(filename, '.');
-	if (dot)
-	{
-		char* start = filename;
-		char temp[256];
-		if (slash)
-		{
-			*slash = 0;
-			strcpy(temp, start);
-			strcat(temp,"/");
-			start = slash + 1;
-		}
-		else
-		{
-			temp[0] = 0;
-		}
-		*dot = 0;
-		strcat(temp, dot+1);
-		strcat(temp, "/");
-		strcat(temp, start);
-		strcpy(filename, temp);
-#ifdef DEBUG_LOAD_SAVE
-		fprintf(stderr, "Converted: %s\n", filename);
-#endif
-	}
-	return filename;
-}
-#endif

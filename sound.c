@@ -566,13 +566,14 @@ for(f=0,ptr=sound_buf;f<sound_framesiz;f++,ptr+=channels)
   /* generate tone+noise */
   /* channel C first to make ACB easier */
   mixer=sound_ay_registers[7];
+  *ptr = 0; // Mid point of range
   if((mixer&4)==0 || (mixer&0x20)==0)
     {
     level=(noise_toggle || (mixer&0x20))?tone_level[2]:0;
     AY_OVERLAY_TONE(ptr,2,level);
-    if(sound_stereo && sound_stereo_acb)
-      ptr[1]=*ptr;
     }
+  if(sound_stereo && sound_stereo_acb)
+    ptr[1]=*ptr;
   if((mixer&1)==0 || (mixer&0x08)==0)
     {
     level=(noise_toggle || (mixer&0x08))?tone_level[0]:0;

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Set up a Risc OS build - run from root of sz81
-mkdir riscroot
+mkdir -p riscroot
 cd riscroot
 mkdir -p c
 mkdir -p h
@@ -15,7 +15,7 @@ cd ../h
 for v in *.h ; do mv "$v"  "$(basename "$v" .h)"; done
 cd ..
 cp ../RiscOS/* .
-mkdir p
+mkdir -p p
 cp ../games-etc/*.81 p
 cp ../games-etc/*.p p
 cd p

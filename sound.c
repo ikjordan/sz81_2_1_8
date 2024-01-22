@@ -566,7 +566,7 @@ for(f=0,ptr=sound_buf;f<sound_framesiz;f++,ptr+=channels)
   /* generate tone+noise */
   /* channel C first to make ACB easier */
   mixer=sound_ay_registers[7];
-  *ptr = 0; // Mid point of range
+  *ptr = 0x80; // Mid point of range
   if((mixer&4)==0 || (mixer&0x20)==0)
     {
     level=(noise_toggle || (mixer&0x20))?tone_level[2]:0;

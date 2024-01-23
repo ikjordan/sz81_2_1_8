@@ -68,9 +68,7 @@ The SDL 1.2 libraries and includes must be downloaded from !Packman and placed w
 ### Notes
 1. The compiler heap size needs to be increased to build the z80 emulator  
 `*SetEval cc1$HeapMax 128`
-
 2. The executable needs to be converted to aif format  
 `*elf2aif sz81`
-
 3. The app types for the ! files should be changed back to obey (the type is lost when saving to github)
-
+4. dot extensions result in files with slash. ie. saving `prog.p` results in a file named `prog/p`

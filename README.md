@@ -20,6 +20,11 @@ Enables high resolution graphics. (WRX always enabled if RAM <= 2kB)
 ### UDG
 Enables QS graphics
 
+### Extra Memory size Options
+Low Memory (i.e. memory in the 8 to 16kB area) is selected by choosing a memory size of 24, 40 or 56 kB
+
+**Note**: Enabling UDG automatically enables low memory
+
 ## Extra command line options
 ### -n  Emulate NTSC ZX81
 For programs originally written for a 60Hz TV display
@@ -31,8 +36,6 @@ Emulates the display area of a typical 1980's UK TV
 Centres display on screen, for both PAL and NTSC. When used with programs that extend the display (e.g. `maxtext.p`) will result in some of the display being lost. Does not apply to either 576 line or full display 
 ### -r  Enable CHR128 support
 For programs such as zdragon
-### -l  Enable RAM in 8kB to 16kB"
-Needed for some WRX programs.
 
 **Note:** RAM in 8kB to 16kB automatically enabled if either UDG or CHR128 enabled
 ### -vTOL 
@@ -42,6 +45,7 @@ Determines how fast the emulated TV will find vertical lock. The smaller the num
 
 ## Extra functionality
 The ZX81 emulation supports the loading and saving of named blocks. The syntax follows that of picozx81 and [ZXpand](https://github-wiki-see.page/m/charlierobson/ZXpand-Vitamins/wiki/ZXpand---Online-Manual)
+
 # Build and Run
 ## To run on Pi
 sz81 uses SDL1.2. The latest Raspberry Pi OS (bookworm) defaults to Wayland for Pi4 and Pi5. When SDL1.2 is used with wayland the resize flag is not respected. This means that the sz81 window can be resized by the user, even though the underlying code does not support this. The following can prevent the resize:
@@ -64,9 +68,7 @@ The SDL 1.2 libraries and includes must be downloaded from !Packman and placed w
 ### Notes
 1. The compiler heap size needs to be increased to build the z80 emulator  
 `*SetEval cc1$HeapMax 128`
-
 2. The executable needs to be converted to aif format  
 `*elf2aif sz81`
-
 3. The app types for the ! files should be changed back to obey (the type is lost when saving to github)
-
+4. dot extensions result in files with slash. ie. saving `prog.p` results in a file named `prog/p`

@@ -610,12 +610,13 @@ void sdl_rcfile_read(void) {
 		if (read_emulator_ramsize != UNDEFINED) {
 			if (read_emulator_ramsize == 1 || read_emulator_ramsize == 2 ||
 				read_emulator_ramsize == 3 || read_emulator_ramsize == 4 ||
-				read_emulator_ramsize == 16 || read_emulator_ramsize == 32 ||
-				read_emulator_ramsize == 48 || read_emulator_ramsize == 56) {
+				read_emulator_ramsize == 16 || read_emulator_ramsize == 24 ||
+				read_emulator_ramsize == 32 || read_emulator_ramsize == 40 ||
+				read_emulator_ramsize == 48 || read_emulator_ramsize == 56 ) {
 				sdl_emulator.ramsize = read_emulator_ramsize;
 			} else {
 				fprintf(stderr, "%s: emulator.ramsize within rcfile is invalid: "
-					"try 1, 2, 3, 4, 16, 32, 48 or 56\n", __func__);
+					"try 1, 2, 3, 4, 16, 24, 32, 40, 48 or 56\n", __func__);
 			}
 		}
 

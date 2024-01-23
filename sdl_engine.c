@@ -227,8 +227,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				centreScreen = true;
 			} else if (!strcmp (argv[count], "-p")) {
 				fiveSevenSix = true;
-			} else if (!strcmp (argv[count], "-l")) {
-				configLowRAM = true;
 			} else if (!strcmp (argv[count], "-r")) {
 				chr128 = true;
 			} else if (!strcmp (argv[count], "-b")) {
@@ -260,7 +258,7 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				fprintf (stdout,
 					"z81 2.1 - copyright (C) 1994-2004 Ian Collier and Russell Marks.\n"
 					"sz81 " VERSION " (unofficial, see NEWS) - copyright (C) 2007-2011 Thunor and Chris Young.\n\n"
-					"usage: sz81 [-fhw] [-XRESxYRES] [filename.{o|p|80|81}]\n\n"
+					"usage: sz81 [-fhwpbncr] [-vTOL] [-XRESxYRES] [filename.{o|p|80|81}]\n\n"
 					"  -f  run the program fullscreen\n"
 					"  -h  this usage help\n"
 					"  -w  run the program in a window\n"
@@ -269,7 +267,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -n  Emulate NTSC ZX81\n"
 					"  -c  Centre screen in display window\n"
 					"  -r  Enable chr128 support\n"
-					"  -l  Enable RAM in 8 to 16kB\n"
 					"  -vTOL      e.g. -r100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;

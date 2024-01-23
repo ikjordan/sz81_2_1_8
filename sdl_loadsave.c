@@ -51,6 +51,9 @@ void fread_unsigned_short_little_endian(unsigned short *target, FILE *fp);
 void fread_int_little_endian(int *target, FILE *fp);
 void fread_unsigned_long_little_endian(unsigned long *target, FILE *fp);
 
+#ifdef PLATFORM_RISCOS
+extern char riscos_prog_dir[];
+#endif
 
 /***************************************************************************
  * Load File Dialog Directory List Populate                                *
@@ -101,8 +104,12 @@ int save_state_dialog_slots_populate(void) {
 		save_state_dialog.slots[count] = 0;
 
 	/* Build a path to the currently loaded program's save state folder */
-	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+	#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
 		strcpy(foldername, LOCAL_DATA_DIR);
+	#elif defined(PLATFORM_RISCOS)
+		strcpy(foldername, riscos_prog_dir);
+		strcatdelimiter(foldername);
+		strcat(foldername, LOCAL_DATA_DIR);
 	#else
 		strcpy(foldername, getenv ("HOME"));
 		strcatdelimiter(foldername);
@@ -280,9 +287,9 @@ int sdl_save_file(int parameter, int method) {
 				/* Add a file extension if one hasn't already been affixed and it is not a memory save*/
 				if (zx80) {
 					/* Add a file extension if one hasn't already been affixed */
-					if (sdl_filetype_casecmp(fullpath, ".o") != 0 &&
-						sdl_filetype_casecmp(fullpath, ".80") != 0)
-						strcat(fullpath, ".o");
+					if (sdl_filetype_casecmp(filename, ".o") != 0 &&
+						sdl_filetype_casecmp(filename, ".80") != 0)
+						strcat(filename, ".o");
 				}
 				else {
 					if (sdl_filetype_casecmp(filename, ".p") != 0 &&
@@ -297,138 +304,142 @@ int sdl_save_file(int parameter, int method) {
 
 			/* Add program name */
 			strcat(fullpath, filename);
-		} else if (method == SAVE_FILE_METHOD_STATESAVE) {
-			/* Build a path to the currently loaded program's save state folder */
-			#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
-				strcpy(fullpath, LOCAL_DATA_DIR);
-			#else
-				strcpy(fullpath, getenv ("HOME"));
-				strcatdelimiter(fullpath);
-				strcat(fullpath, LOCAL_DATA_DIR);
-			#endif
-			strcatdelimiter(fullpath);
-			strcat(fullpath, LOCAL_SAVSTA_DIR);
-			strcatdelimiter(fullpath);
-			fullpath[index = strlen(fullpath)] =
-				tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
-			fullpath[++index] = 0;
-			strcatdelimiter(fullpath);
-			strcat(fullpath, file_dialog_basename(load_file_dialog.loaded));
-			strcatdelimiter(fullpath);
-			/* Form an appropriate filename */
-			if (*sdl_emulator.model == MODEL_ZX80) {
-				sprintf(filename, "savsta%i.sso", parameter + 1);
-			} else if (*sdl_emulator.model == MODEL_ZX81) {
-				sprintf(filename, "savsta%i.ssp", parameter + 1);
-			}
-			/* Append filename to fullpath */
-			strcat(fullpath, filename);
 		}
+	} else if (method == SAVE_FILE_METHOD_STATESAVE) {
+		/* Build a path to the currently loaded program's save state folder */
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
+			strcpy(fullpath, LOCAL_DATA_DIR);
+		#elif defined(PLATFORM_RISCOS)
+			strcpy(fullpath, riscos_prog_dir);
+			strcatdelimiter(fullpath);
+			strcat(fullpath, LOCAL_DATA_DIR);
+		#else
+			strcpy(fullpath, getenv ("HOME"));
+			strcatdelimiter(fullpath);
+			strcat(fullpath, LOCAL_DATA_DIR);
+		#endif
+		strcatdelimiter(fullpath);
+		strcat(fullpath, LOCAL_SAVSTA_DIR);
+		strcatdelimiter(fullpath);
+		fullpath[index = strlen(fullpath)] =
+			tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
+		fullpath[++index] = 0;
+		strcatdelimiter(fullpath);
+		strcat(fullpath, file_dialog_basename(load_file_dialog.loaded));
+		strcatdelimiter(fullpath);
+		/* Form an appropriate filename */
+		if (*sdl_emulator.model == MODEL_ZX80) {
+			sprintf(filename, "savsta%i.sso", parameter + 1);
+		} else if (*sdl_emulator.model == MODEL_ZX81) {
+			sprintf(filename, "savsta%i.ssp", parameter + 1);
+		}
+		/* Append filename to fullpath */
+		strcat(fullpath, filename);
+	}
 
-		/* Attempt to open the file */
-		if ((!retval) &&
-		    ((fp = fopen(fullpath, "wb")) != NULL)) {
-			if (method == SAVE_FILE_METHOD_STATESAVE) {
-				/* Printer variables are reinitialised when a new file
-				 * is opened on output so saving them is futile.
-				 * Saving keyports and sound variables is unneccessary.
-				 * signal_int_flag is being updated by the SDL timer
-				 * likely in another thread so no point in saving that.
-				 * refresh_screen I'm forcing to 1 anyway.
-				 * 
-				 * To make these files platform independent I'm saving
-				 * and restoring everything by the byte in little-endian
-				 * format. These are the integer sizes on my development
-				 * computer (GNU/Linux 32bit):
-				 * 
-				 * sizeof(long) = 4 bytes
-				 * sizeof(int) = 4 bytes
-				 * sizeof(short) = 2 bytes
-				 * sizeof(char) = 1 byte */
+	/* Attempt to open the file */
+	if ((!retval) &&
+		((fp = fopen(fullpath, "wb")) != NULL)) {
+		if (method == SAVE_FILE_METHOD_STATESAVE) {
+			/* Printer variables are reinitialised when a new file
+				* is opened on output so saving them is futile.
+				* Saving keyports and sound variables is unneccessary.
+				* signal_int_flag is being updated by the SDL timer
+				* likely in another thread so no point in saving that.
+				* refresh_screen I'm forcing to 1 anyway.
+				* 
+				* To make these files platform independent I'm saving
+				* and restoring everything by the byte in little-endian
+				* format. These are the integer sizes on my development
+				* computer (GNU/Linux 32bit):
+				* 
+				* sizeof(long) = 4 bytes
+				* sizeof(int) = 4 bytes
+				* sizeof(short) = 2 bytes
+				* sizeof(char) = 1 byte */
 
-				/* The entire contents of memory */
-				fwrite(mem, 1, 64 * 1024, fp);	/* unsigned char */
+			/* The entire contents of memory */
+			fwrite(mem, 1, 64 * 1024, fp);	/* unsigned char */
 
-				/* Variables from the top of z80.c */
-				fwrite_unsigned_long_little_endian(&tstates, fp);
-				fwrite_unsigned_long_little_endian(&frames, fp);
-				fwrite_int_little_endian(&liney, fp);
-				fwrite_int_little_endian(&vsy, fp);
-				fwrite_unsigned_long_little_endian(&linestart, fp);
-				fwrite_int_little_endian(&vsync_toggle, fp);
-				fwrite_int_little_endian(&vsync_lasttoggle, fp);
+			/* Variables from the top of z80.c */
+			fwrite_unsigned_long_little_endian(&tstates, fp);
+			fwrite_unsigned_long_little_endian(&frames, fp);
+			fwrite_int_little_endian(&liney, fp);
+			fwrite_int_little_endian(&vsy, fp);
+			fwrite_unsigned_long_little_endian(&linestart, fp);
+			fwrite_int_little_endian(&vsync_toggle, fp);
+			fwrite_int_little_endian(&vsync_lasttoggle, fp);
 
-				/* Variables liberated from the top of mainloop */
-				fwrite(&a, 1, 1, fp);	/* unsigned char */
-				fwrite(&f, 1, 1, fp);
-				fwrite(&b, 1, 1, fp); 
-				fwrite(&c, 1, 1, fp);
-				fwrite(&d, 1, 1, fp); 
-				fwrite(&e, 1, 1, fp);
-				fwrite(&h, 1, 1, fp); 
-				fwrite(&l, 1, 1, fp);
-				fwrite(&r, 1, 1, fp);
-				fwrite(&a1, 1, 1, fp); 
-				fwrite(&f1, 1, 1, fp);
-				fwrite(&b1, 1, 1, fp); 
-				fwrite(&c1, 1, 1, fp);
-				fwrite(&d1, 1, 1, fp); 
-				fwrite(&e1, 1, 1, fp);
-				fwrite(&h1, 1, 1, fp); 
-				fwrite(&l1, 1, 1, fp);
-				fwrite(&i, 1, 1, fp); 
-				fwrite(&iff1, 1, 1, fp); 
-				fwrite(&iff2, 1, 1, fp);
-				fwrite(&im, 1, 1, fp); 
-				fwrite_unsigned_short_little_endian(&pc, fp);
-				fwrite_unsigned_short_little_endian(&ix, fp);
-				fwrite_unsigned_short_little_endian(&iy, fp);
-				fwrite_unsigned_short_little_endian(&sp, fp);
-				fwrite(&radjust, 1, 1, fp);	/* unsigned char */
-				fwrite_unsigned_long_little_endian(&nextlinetime, fp);
-				fwrite_unsigned_long_little_endian(&linegap, fp);
-				fwrite_unsigned_long_little_endian(&lastvsyncpend, fp);
-				fwrite(&ixoriy, 1, 1, fp);	/* unsigned char */
-				fwrite(&new_ixoriy, 1, 1, fp);
-				fwrite(&intsample, 1, 1, fp);
-				fwrite(&op, 1, 1, fp);
-				fwrite_int_little_endian(&ulacharline, fp);
-				fwrite_int_little_endian(&nmipend, fp);
-				fwrite_int_little_endian(&intpend, fp);
-				fwrite_int_little_endian(&vsyncpend, fp);
-				fwrite_int_little_endian(&vsynclen, fp);
-				fwrite_int_little_endian(&hsyncskip, fp);
-				fwrite_int_little_endian(&framewait, fp);
+			/* Variables liberated from the top of mainloop */
+			fwrite(&a, 1, 1, fp);	/* unsigned char */
+			fwrite(&f, 1, 1, fp);
+			fwrite(&b, 1, 1, fp); 
+			fwrite(&c, 1, 1, fp);
+			fwrite(&d, 1, 1, fp); 
+			fwrite(&e, 1, 1, fp);
+			fwrite(&h, 1, 1, fp); 
+			fwrite(&l, 1, 1, fp);
+			fwrite(&r, 1, 1, fp);
+			fwrite(&a1, 1, 1, fp); 
+			fwrite(&f1, 1, 1, fp);
+			fwrite(&b1, 1, 1, fp); 
+			fwrite(&c1, 1, 1, fp);
+			fwrite(&d1, 1, 1, fp); 
+			fwrite(&e1, 1, 1, fp);
+			fwrite(&h1, 1, 1, fp); 
+			fwrite(&l1, 1, 1, fp);
+			fwrite(&i, 1, 1, fp); 
+			fwrite(&iff1, 1, 1, fp); 
+			fwrite(&iff2, 1, 1, fp);
+			fwrite(&im, 1, 1, fp); 
+			fwrite_unsigned_short_little_endian(&pc, fp);
+			fwrite_unsigned_short_little_endian(&ix, fp);
+			fwrite_unsigned_short_little_endian(&iy, fp);
+			fwrite_unsigned_short_little_endian(&sp, fp);
+			fwrite(&radjust, 1, 1, fp);	/* unsigned char */
+			fwrite_unsigned_long_little_endian(&nextlinetime, fp);
+			fwrite_unsigned_long_little_endian(&linegap, fp);
+			fwrite_unsigned_long_little_endian(&lastvsyncpend, fp);
+			fwrite(&ixoriy, 1, 1, fp);	/* unsigned char */
+			fwrite(&new_ixoriy, 1, 1, fp);
+			fwrite(&intsample, 1, 1, fp);
+			fwrite(&op, 1, 1, fp);
+			fwrite_int_little_endian(&ulacharline, fp);
+			fwrite_int_little_endian(&nmipend, fp);
+			fwrite_int_little_endian(&intpend, fp);
+			fwrite_int_little_endian(&vsyncpend, fp);
+			fwrite_int_little_endian(&vsynclen, fp);
+			fwrite_int_little_endian(&hsyncskip, fp);
+			fwrite_int_little_endian(&framewait, fp);
 
-				/* Variables from the top of common.c */
-				fwrite_int_little_endian(&interrupted, fp);
-				fwrite_int_little_endian(&nmigen, fp);
-				fwrite_int_little_endian(&hsyncgen, fp);
-				fwrite_int_little_endian(&vsync, fp);
+			/* Variables from the top of common.c */
+			fwrite_int_little_endian(&interrupted, fp);
+			fwrite_int_little_endian(&nmigen, fp);
+			fwrite_int_little_endian(&hsyncgen, fp);
+			fwrite_int_little_endian(&vsync, fp);
 
-				/* 65654/0x10076 bytes to here for 2.1.7 */
+			/* 65654/0x10076 bytes to here for 2.1.7 */
 
-			} else {
-				if (found) {
-					fwrite(mem + start, 1, length, fp);
-				}
-				else {
-					/* Write up to and including E_LINE */
-					if (*sdl_emulator.model == MODEL_ZX80) {
-						fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
-					} else if (*sdl_emulator.model == MODEL_ZX81) {
-						fwrite(mem + 0x4009, 1, (mem[0x4015] << 8 | mem[0x4014]) - 0x4009, fp);
-					}
-					/* Copy fullpath across to the load file dialog as
-					* then we have a record of what was last saved */
-					strcpy(load_file_dialog.loaded, fullpath);
-				}
-			}
-			/* Close the file now as we've finished with it */
-			fclose(fp);
 		} else {
-			retval = TRUE;
+			if (found) {
+				fwrite(mem + start, 1, length, fp);
+			}
+			else {
+				/* Write up to and including E_LINE */
+				if (*sdl_emulator.model == MODEL_ZX80) {
+					fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
+				} else if (*sdl_emulator.model == MODEL_ZX81) {
+					fwrite(mem + 0x4009, 1, (mem[0x4015] << 8 | mem[0x4014]) - 0x4009, fp);
+				}
+				/* Copy fullpath across to the load file dialog as
+				* then we have a record of what was last saved */
+				strcpy(load_file_dialog.loaded, fullpath);
+			}
 		}
+		/* Close the file now as we've finished with it */
+		fclose(fp);
+	} else {
+		retval = TRUE;
 	}
 
 	if (retval)
@@ -544,8 +555,12 @@ int sdl_load_file(int parameter, int method) {
 		}
 	} else if (method == LOAD_FILE_METHOD_STATELOAD) {
 		/* Build a path to the currently loaded program's save state folder */
-		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32) || defined(PLATFORM_RISCOS)
+		#if defined(PLATFORM_GP2X) || defined(__amigaos4__) || defined(_WIN32)
 			strcpy(fullpath, LOCAL_DATA_DIR);
+		#elif defined(PLATFORM_RISCOS)
+			strcpy(fullpath, riscos_prog_dir);
+			strcatdelimiter(fullpath);
+			strcat(fullpath, LOCAL_DATA_DIR);
 		#else
 			strcpy(fullpath, getenv ("HOME"));
 			strcatdelimiter(fullpath);
@@ -574,10 +589,13 @@ int sdl_load_file(int parameter, int method) {
 		if (method == LOAD_FILE_METHOD_NAMEDLOAD) {
 			/* Get translated program name */
 			strcpy(filename, strzx81_to_ascii(parameter));
+#ifdef DEBUG_LOAD_SAVE
+			fprintf(stderr, "Named load: %s\n", filename);
+#endif
       		extend = strrchr(filename, ';');
       		if (extend) {
         		// Terminate the file name
-        *		extend++ = '\0';
+        		*extend++ = '\0';
 
         		// Attempt to read the start address
         		if (!parseNumber(extend, 0, 65535, 0, (unsigned int*)&start))
@@ -628,6 +646,9 @@ int sdl_load_file(int parameter, int method) {
 			}
 
 			/* Attempt to open the file */
+#ifdef DEBUG_LOAD_SAVE
+			fprintf(stderr, "fopen: %s\n", fullpath);
+#endif
 			if ((fp = fopen(fullpath, "rb")) != NULL) {
 				if (method == LOAD_FILE_METHOD_STATELOAD) {
 					/* Printer variables are reinitialised when a new file
@@ -809,12 +830,15 @@ int sdl_load_file(int parameter, int method) {
 					}
 					else {
 						// Find the size of the file
-						fseek(fp, 0, SEEK_END); // seek to end of file
-						long size = ftell(fp); // get current file pointer
+						fseek(fp, 0, SEEK_END);  // seek to end of file
+						long size = ftell(fp);   // get current file pointer
 						fseek(fp, 0, SEEK_SET);
-
+						int orgstart = start;
+#ifdef DEBUG_LOAD_SAVE
+						fprintf(stderr, "Request to load %i bytes to address %i from %s\n", (int)size, start, fullpath);
+#endif
 						/* Do we need to skip the start? */
-						int ramstart = (LowRAM) ? 0x2000 : 4000;
+						int ramstart = (LowRAM) ? 0x2000 : 0x4000;
 						int offset = 0;
 						int length = (int)size;
 
@@ -827,19 +851,23 @@ int sdl_load_file(int parameter, int method) {
 							// Make sure don't read past end of memory
 							if (LowRAM) ramsize += 8;
 
-							if ((start + length) > ramsize * 1024) {
-								length -= ((start + length) - ramsize * 1024);
+							if ((start + length) > (ramsize * 1024 + ramstart)) {
+								length -= ((start + length) - (ramsize * 1024 + ramstart));
 							}
 
 							if (length > 0) {
 								if (offset) fseek(fp, offset, SEEK_SET);
 								fread(mem + start, 1, length, fp);
+#ifdef DEBUG_LOAD_SAVE
+								fprintf(stderr, "Load %i bytes to address %i from %s\n", length, start, fullpath);
+#endif
 							}
 						}
 
 						// Report error if nothing was loaded
-						if (length <=0) {
-         					fprintf(stderr, "No memory to load, generating error 3\n", start);
+						if (length <= 0) {
+         					fprintf(stderr, "Error 3, No memory to load. Load Addr %i Length %i Mem Start %i\n",
+							        orgstart, (int)size, ramstart);
 							ERROR_INV3();
 							retval = TRUE;
 						}
@@ -849,9 +877,13 @@ int sdl_load_file(int parameter, int method) {
 				fclose(fp);
 				break;
 			} else {
-				if (!(method == LOAD_FILE_METHOD_NAMEDLOAD && count == 0)) {
+				if (!(method == LOAD_FILE_METHOD_NAMEDLOAD)){
 					retval = TRUE;
 					break;
+				}
+				else if (count == 1) {
+					ERROR_D();
+					retval = TRUE;
 				}
 			}
 		}
@@ -1044,6 +1076,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 	/* Record the current working directory before changing it to dir
 	 * (I've found that stat doesn't work unless the dir is changed) */
 	strcpy(cwd, ""); getcwd(cwd, 256); cwd[255] = 0; chdir(dir);
+#ifdef DEBUG_LOAD_SAVE
+	fprintf(stderr, "chdir: %s\n", cwd);
+#endif
 
 	/* NOTE TO PORTERS: eventually you'll hit root ('/' on *nix, ':' on
 	 * __amigaos4__, '\' on _WIN32 and as I'm developing this on Linux I
@@ -1180,6 +1215,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 
 	/* Restore the current working directory */
 	chdir(cwd);
+#ifdef DEBUG_LOAD_SAVE
+	fprintf(stderr, "chdir: %s\n", cwd);
+#endif
 }
 
 /***************************************************************************

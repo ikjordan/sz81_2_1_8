@@ -2152,9 +2152,9 @@ void manage_runopts_input(void) {
 				if (state == SDL_PRESSED) {
 					key_repeat_manager(KRM_FUNC_REPEAT, &event, COMP_RUNOPTS0 * id);
 					if (id == SDLK_INSERT) {
-						if (runopts_emulator_ramsize >= 32 &&
-							runopts_emulator_ramsize <= 48) {
-							runopts_emulator_ramsize -= 16;
+						if (runopts_emulator_ramsize >= 24 &&
+							runopts_emulator_ramsize <= 56) {
+							runopts_emulator_ramsize -= 8;
 						} else if (runopts_emulator_ramsize == 16) {
 							runopts_emulator_ramsize = 4;
 						} else if (runopts_emulator_ramsize > 1 &&
@@ -2167,8 +2167,8 @@ void manage_runopts_input(void) {
 						} else if (runopts_emulator_ramsize == 4) {
 							runopts_emulator_ramsize = 16;
 						} else if (runopts_emulator_ramsize >= 16 &&
-							runopts_emulator_ramsize <= 32) {
-							runopts_emulator_ramsize += 16;
+							runopts_emulator_ramsize <= 48) {
+							runopts_emulator_ramsize += 8;
 						}
 					}
 				} else if (state == SDL_RELEASED) {

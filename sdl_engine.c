@@ -177,9 +177,8 @@ int sdl_init(void) {
 	 * setting a video mode as per SDL docs instructions */
 	#if defined(PLATFORM_GP2X)
 	#elif defined(PLATFORM_ZAURUS)
-	#elif defined(PLATFORM_RISCOS)
-		SDL_WM_SetCaption("sz81 2.1.8a", "sz81");
 	#else
+	#ifndef PLATFORM_RISCOS
 		strcpy(filename, PACKAGE_DATA_DIR);
 		strcatdelimiter(filename);
 		strcat(filename, IMG_WM_ICON);
@@ -191,9 +190,9 @@ int sdl_init(void) {
 		} else {
 			SDL_WM_SetIcon (wm_icon, NULL);
 		}
-
+	#endif
 		/* Set display window title */
-		SDL_WM_SetCaption("sz81", "sz81");
+		SDL_WM_SetCaption("sz81 "VERSION, "sz81");
 	#endif
 
 	/* Set-up the local data directory */

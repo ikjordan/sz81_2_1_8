@@ -1,7 +1,7 @@
 # May need to increase cc heap
 # *SetEval cc1$HeapMax 128
 
-# To convert to correct format use
+# To convert binary to aif format use
 # *elf2aif sz81
 
 # SDL libs and includes assumed to be in SDL under install dir

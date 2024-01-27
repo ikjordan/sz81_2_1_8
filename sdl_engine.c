@@ -227,8 +227,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				centreScreen = true;
 			} else if (!strcmp (argv[count], "-p")) {
 				fiveSevenSix = true;
-			} else if (!strcmp (argv[count], "-r")) {
-				chr128 = true;
 			} else if (!strcmp (argv[count], "-b")) {
 				fullDisplay = true;
 			} else if (sscanf (argv[count], "-v%i",
@@ -266,7 +264,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -b  full display (414 pixels by 313)\n"
 					"  -n  Emulate NTSC ZX81\n"
 					"  -c  Centre screen in display window\n"
-					"  -r  Enable chr128 support\n"
 					"  -vTOL      e.g. -r100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;
@@ -422,7 +419,8 @@ void sdl_component_executive(void) {
 	/* Monitor character generator changes */
 	if (sdl_emulator_chrgen != sdl_emulator.chrgen) {
 		sdl_emulator_chrgen = sdl_emulator.chrgen;
-		useQSUDG = (sdl_emulator_chrgen != CHRGENSINCLAIR);
+		useQSUDG = (sdl_emulator_chrgen == CHRGENQS);
+		chr128 = (sdl_emulator_chrgen == CHRGENCHR16);
 	}
 
 	#ifdef OSS_SOUND_SUPPORT

@@ -2292,13 +2292,16 @@ void manage_runopts_input(void) {
 					key_repeat_manager(KRM_FUNC_RELEASE, NULL, 0);
 				}
 			}
-		} else if (id == SDLK_7 || id == SDLK_8) {
+		} else if (id == SDLK_7 || id == SDLK_8 || id == SDLK_9) {
 			if (runtime_options[0].state) {
 				if (state == SDL_PRESSED) {
 					if (id == SDLK_7) {
 						runopts_emulator_chrgen=CHRGENSINCLAIR;
-					} else {
-						runopts_emulator_chrgen=CHRGENCHR16;
+					} else if (id == SDLK_8) {
+						runopts_emulator_chrgen=CHRGENQS;
+					}
+					else {
+						runopts_emulator_chrgen = CHRGENCHR16;
 					}
 				}
 			} else if (runtime_options[2].state) {

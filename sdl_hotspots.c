@@ -204,6 +204,7 @@ void sdl_hotspots_init(void) {
 	hotspots[HS_RUNOPTS0_UDG_NO].remap_id = SDLK_7;
 	hotspots[HS_RUNOPTS0_UDG_NO].flags |= HS_PROP_SELECTED;	/* Default selected */
 	hotspots[HS_RUNOPTS0_UDG_YES].remap_id = SDLK_8;
+	hotspots[HS_RUNOPTS0_UDG_128].remap_id = SDLK_9;
 	hotspots[HS_RUNOPTS0_FRAMESKIP_DN].remap_id = SDLK_LEFTBRACKET;
 	hotspots[HS_RUNOPTS0_FRAMESKIP_UP].remap_id = SDLK_RIGHTBRACKET;
 	#ifdef ENABLE_EMULATION_SPEED_ADJUST
@@ -737,11 +738,14 @@ void hotspots_resize(int gid) {
 		hotspots[HS_RUNOPTS0_WRX_YES].hit_y += 16.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_WRX_YES].hit_w = 7.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_UDG_NO].hit_x += 2.5 * 8 * video.scale;
-		hotspots[HS_RUNOPTS0_UDG_NO].hit_y += 18.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_UDG_NO].hit_y += 19.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_UDG_NO].hit_w = 7.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_UDG_YES].hit_x += 12.5 * 8 * video.scale;
-		hotspots[HS_RUNOPTS0_UDG_YES].hit_y += 18.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_UDG_YES].hit_y += 19.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_UDG_YES].hit_w = 7.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_UDG_128].hit_x += 22.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_UDG_128].hit_y += 19.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_UDG_128].hit_w = 7.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_FRAMESKIP_DN].hit_x += 9.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_FRAMESKIP_DN].hit_y += 11.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_FRAMESKIP_UP].hit_x += 17.5 * 8 * video.scale;
@@ -765,7 +769,9 @@ void hotspots_resize(int gid) {
 		for (count = HS_RUNOPTS0_ZX80; count <= HS_RUNOPTS0_NEXT; count++) {
 			hotspots[count].hit_h = 2 * 8 * video.scale;
 			if ((count >= HS_RUNOPTS0_RAM_DN && count < HS_RUNOPTS0_M1NOT_NO) ||
-			    ((count > HS_RUNOPTS0_M1NOT_YES && count < HS_RUNOPTS0_SAVE) && count != HS_RUNOPTS0_WRX_NO && count != HS_RUNOPTS0_WRX_YES && count != HS_RUNOPTS0_UDG_NO && count != HS_RUNOPTS0_UDG_YES))
+			    ((count > HS_RUNOPTS0_M1NOT_YES && count < HS_RUNOPTS0_SAVE) &&
+				count != HS_RUNOPTS0_WRX_NO && count != HS_RUNOPTS0_WRX_YES &&
+				count != HS_RUNOPTS0_UDG_NO && count != HS_RUNOPTS0_UDG_YES && count != HS_RUNOPTS0_UDG_128))
 				hotspots[count].hit_w = 2 * 8 * video.scale;
 		}
 		/* Set-up hl_x/y/w/h */

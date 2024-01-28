@@ -22,7 +22,7 @@
 /* Local resources */
 #if defined(__amigaos4__)
 	#define LOCAL_DATA_DIR amiga_data_dir
-#elif defined(PLATFORM_GP2X) || defined(_WIN32) || defined (PLATFORM_RISCOS) || defined(PLATFORM_RISCOS)
+#elif defined(PLATFORM_GP2X) || defined(_WIN32) || defined (PLATFORM_RISCOS)
 	#define LOCAL_DATA_DIR "local"
 #else
 	#define LOCAL_DATA_DIR ".sz81"

@@ -78,6 +78,7 @@ extern Display_T disp;
 #define HIRESWRX        1
 
 #define CHRGENSINCLAIR  0
+#define CHRGENQS        2
 #define CHRGENCHR16     3
 
 extern unsigned char mem[];
@@ -104,12 +105,12 @@ extern int ignore_esc;
 extern bool m1not;
 extern bool useWRX;
 extern bool useQSUDG;
+extern bool chr128;
 extern bool UDGEnabled;
 extern bool LowRAM;
 extern bool useNTSC;
 
 /* Variable set from command line options*/
-extern bool chr128;
 extern bool centreScreen;
 extern bool fullDisplay;
 extern bool fiveSevenSix;

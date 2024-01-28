@@ -65,12 +65,12 @@ bool useWRX = true;
 bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
+bool chr128 = false;
 int adjustStartY = 0;
 int adjustStartX = 0;
 
 /* Variable set from command line options*/
 bool useNTSC = false;
-bool chr128 = false;
 bool centreScreen = false;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
@@ -505,7 +505,8 @@ switch(ramsize)
         memptr[f]=mem+1024*f;
       }
   }
-  useQSUDG = (sdl_emulator.chrgen != CHRGENSINCLAIR);
+  useQSUDG = (sdl_emulator.chrgen == CHRGENQS);
+  chr128 = (sdl_emulator.chrgen == CHRGENCHR16);
   m1not = (sdl_emulator.m1not != 0);
   UDGEnabled = false;
 #endif

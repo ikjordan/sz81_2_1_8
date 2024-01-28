@@ -1,5 +1,7 @@
-WimpSlot -min 3980k -max 3980k
+WimpSlot -min 980k -max 980k
+
+Set UnixEnv$sz81$sfix ""
 
 Set Sz81$Dir <Obey$Dir>
 
-Run <Sz81$Dir>.sz81 > <Obey$Dir>.stderr
+Run <Sz81$Dir>.sz81 >null: 2><Obey$Dir>.stderr

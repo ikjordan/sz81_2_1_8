@@ -177,9 +177,8 @@ int sdl_init(void) {
 	 * setting a video mode as per SDL docs instructions */
 	#if defined(PLATFORM_GP2X)
 	#elif defined(PLATFORM_ZAURUS)
-	#elif defined(PLATFORM_RISCOS)
-		SDL_WM_SetCaption("sz81 2.1.8a", "sz81");
 	#else
+	#ifndef PLATFORM_RISCOS
 		strcpy(filename, PACKAGE_DATA_DIR);
 		strcatdelimiter(filename);
 		strcat(filename, IMG_WM_ICON);
@@ -191,9 +190,9 @@ int sdl_init(void) {
 		} else {
 			SDL_WM_SetIcon (wm_icon, NULL);
 		}
-
+	#endif
 		/* Set display window title */
-		SDL_WM_SetCaption("sz81", "sz81");
+		SDL_WM_SetCaption("sz81 "VERSION, "sz81");
 	#endif
 
 	/* Set-up the local data directory */
@@ -227,8 +226,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				centreScreen = true;
 			} else if (!strcmp (argv[count], "-p")) {
 				fiveSevenSix = true;
-			} else if (!strcmp (argv[count], "-r")) {
-				chr128 = true;
 			} else if (!strcmp (argv[count], "-b")) {
 				fullDisplay = true;
 			} else if (sscanf (argv[count], "-v%i",
@@ -266,7 +263,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -b  full display (414 pixels by 313)\n"
 					"  -n  Emulate NTSC ZX81\n"
 					"  -c  Centre screen in display window\n"
-					"  -r  Enable chr128 support\n"
 					"  -vTOL      e.g. -r100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;
@@ -422,7 +418,8 @@ void sdl_component_executive(void) {
 	/* Monitor character generator changes */
 	if (sdl_emulator_chrgen != sdl_emulator.chrgen) {
 		sdl_emulator_chrgen = sdl_emulator.chrgen;
-		useQSUDG = (sdl_emulator_chrgen != CHRGENSINCLAIR);
+		useQSUDG = (sdl_emulator_chrgen == CHRGENQS);
+		chr128 = (sdl_emulator_chrgen == CHRGENCHR16);
 	}
 
 	#ifdef OSS_SOUND_SUPPORT
@@ -714,7 +711,9 @@ void emulator_exit(void) {
  ***************************************************************************/
 
 void clean_up_before_exit(void) {
+#ifndef PLATFORM_RISCOS
 	int count;
+#endif
 
 	if (load_file_dialog.dirlist) free(load_file_dialog.dirlist);
 
@@ -726,6 +725,7 @@ void clean_up_before_exit(void) {
 
 	if (rcfile.rewrite) rcfile_write();
 
+#ifndef PLATFORM_RISCOS
 	if (control_bar.scaled) SDL_FreeSurface(control_bar.scaled);
 	if (vkeyb.zx80original) SDL_FreeSurface(vkeyb.zx80original);
 	if (vkeyb.zx81original) SDL_FreeSurface(vkeyb.zx81original);
@@ -752,6 +752,7 @@ void clean_up_before_exit(void) {
 	if (wm_icon) SDL_FreeSurface(wm_icon);
 
 	SDL_Quit();
+#endif
 
 	#ifdef __amigaos4__
 		amiga_close_libs();

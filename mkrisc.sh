@@ -17,3 +17,5 @@ cd ..
 cp ../RiscOS/* .
 mkdir -p data
 cp ../data/* data
+mkdir -p games-etc
+cp -p -r ../games-etc/* games-etc

@@ -40,7 +40,7 @@
 #define DISPLAY_P_HEIGHT      288
 #define DISPLAY_P_START_X     24
 #define DISPLAY_P_START_Y     0
-#define DISPLAY_P_PIXEL_OFF   2
+#define DISPLAY_P_PIXEL_OFF   4
 #define DISPLAY_P_PADDING     1
 
 // Sizes for full (debug) display
@@ -48,7 +48,7 @@
 #define DISPLAY_F_HEIGHT      314
 #define DISPLAY_F_START_X     0
 #define DISPLAY_F_START_Y     0
-#define DISPLAY_F_PIXEL_OFF   0
+#define DISPLAY_F_PIXEL_OFF   6
 #define DISPLAY_F_PADDING     1
 
 typedef struct
@@ -119,6 +119,10 @@ extern int  vertTol;
 extern int  adjustStartX;
 extern int  adjustStartY;
 
+/* Chroma variables */
+extern int chromamode;
+extern unsigned char bordercolour;
+
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);
 extern void startsigsandtimer();
@@ -141,8 +145,7 @@ extern void do_interrupt();
 extern void frame_pause(void);
 #ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
-void initdisplay(void);
+extern void initdisplay(void);
+extern void adjustChroma(bool start);
 #endif
-
-
 

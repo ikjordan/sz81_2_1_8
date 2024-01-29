@@ -123,6 +123,7 @@ int sdl_init(void);
 int sdl_com_line_process(int argc, char *argv[]);
 int sdl_video_setmode(void);
 unsigned char *vga_getgraphmem(void);
+int cvtChroma(unsigned char c);
 void sdl_keyboard_init(void);
 void sdl_hotspots_init(void);
 void sdl_rcfile_read(void);

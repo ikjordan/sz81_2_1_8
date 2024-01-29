@@ -55,6 +55,13 @@ static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) *
 static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_F_PADDING;
 unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_F_PADDING;
 
+/* chroma */
+static unsigned char scrnbmpc_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];/* written */
+static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];	  /* displayed */
+
+static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_F_PADDING;
+unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_F_PADDING;
+
 int vsx = 0;
 int vsy = 0;
 int framewait = 0;
@@ -268,6 +275,7 @@ void mainloop()
   unsigned long ts;
   unsigned long tstore;
   unsigned char v = 0;
+  unsigned char colour;
 
   while (1)
   {
@@ -309,6 +317,7 @@ void mainloop()
     }
 #endif
     v = 0;
+    colour = 0;
     ts = 0;
     LastInstruction = LASTINSTNONE;
 
@@ -347,13 +356,13 @@ void mainloop()
         {
           int addr;
           if (chr128 && i > 0x20 && i & 1)
-            addr = ((i & 0xfe) << 8) | ((((op & 128) >> 1) | (op & 63)) << 3) | rowcounter;
+            addr = ((i & 0xfe) << 8) | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter;
           else
-            addr = ((i & 0xfe) << 8) | ((op & 63) << 3) | rowcounter;
+            addr = ((i & 0xfe) << 8) | ((op & 0x3f) << 3) | rowcounter;
 
           if (UDGEnabled && addr >= 0x1E00 && addr < 0x2000)
           {
-            v = font[addr - ((op & 128) ? 0x1C00 : 0x1E00)];
+            v = font[addr - ((op & 0x80) ? 0x1C00 : 0x1E00)];
           }
           else
           {
@@ -369,6 +378,15 @@ void mainloop()
           }
         }
         v = (op & 128) ? ~v : v;
+
+        if (chromamode)
+        {
+          if (chromamode & 0x10)
+	          colour = fetch(pc);
+          else
+	          colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+        }
+
         op = 0; /* the CPU sees a nop */
       }
       tstore = tstates;
@@ -432,25 +450,35 @@ void mainloop()
     // Plot data in shift register
     // Note subtract 6 as this leaves the smallest positive number
     // of bits to carry to next byte (2)
-    if (v &&
+    if ((v || colour) &&
         (RasterX >= (disp.start_x - adjustStartX - 6)) &&
         (RasterX < (disp.end_x - adjustStartX)) &&
         (RasterY >= (disp.start_y - adjustStartY)) &&
         (RasterY < (disp.end_y - adjustStartY)))
     {
-      int k = dest + RasterX;
+      if (chromamode)
       {
-        int kh = k >> 3;
-        int kl = k & 7;
+        int k = (dest + RasterX) >> 3;
+        scrnbmpc_new[k] = colour;
+        scrnbmp_new[k] = v;
+      }
+      else
+      {
+        if (v)
+        {
+          int k = dest + RasterX;
+          int kh = k >> 3;
+          int kl = k & 7;
 
-        if (kl)
-        {
-          scrnbmp_new[kh++] |= (v >> kl);
-          scrnbmp_new[kh] = (v << (8 - kl));
-        }
-        else
-        {
-          scrnbmp_new[kh] = v;
+          if (kl)
+          {
+            scrnbmp_new[kh++] |= (v >> kl);
+            scrnbmp_new[kh] = (v << (8 - kl));
+          }
+          else
+          {
+            scrnbmp_new[kh] = v;
+          }
         }
       }
     }
@@ -584,6 +612,12 @@ void z80_reset(void)
   frames = 0;
   vsy = 0;
   ay_reg = 0;
+
+  if (chromamode)
+  {
+    chromamode = 0;
+    adjustChroma(false);
+  }
 }
 
 static inline int z80_interrupt(void)
@@ -667,8 +701,10 @@ static inline void checkvsync(int tolchk)
     else
     {
       memcpy(scrnbmp, scrnbmp_new, disp.length);
+      if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
     }
     memset(scrnbmp_new, 0x00, disp.length);
+    if (chromamode) memset(scrnbmpc_new, bordercolour << 4, disp.length);
     RasterY = 0;
     dest = disp.offset + (disp.stride_bit * adjustStartY) + adjustStartX;
   }
@@ -728,6 +764,10 @@ unsigned int in(int h, int l)
   if (useNTSC)
     data |= 64;
 
+  if (h == 0x7f && l == 0xef) {
+    return 0; /* chroma available */
+  }
+
   if (!(l & 1))
   {
     LastInstruction = LASTINSTINFE;
@@ -783,6 +823,32 @@ unsigned int in(int h, int l)
 
 unsigned int out(int h, int l, int a)
 {
+  if (h==0x7f && l==0xef) {	/* chroma */
+    chromamode = a&0x30;
+    if (chromamode)
+    {
+#ifdef DEBUG_CHROMA
+      fprintf(stderr, "Selecting Chroma mode 0x%x.\n",a);
+#endif      
+      if (sdl_emulator.ramsize < 56)
+      {
+        chromamode = 0;
+        printf("Insufficient RAM Size for Chroma!\n");
+      }
+      else
+      {
+        adjustChroma(true);
+        bordercolour = a & 0x0f;
+      }
+    } else {
+#ifdef DEBUG_CHROMA
+      fprintf(stderr, "Selecting B/W mode.\n");
+#endif
+      adjustChroma(false);
+    }
+    return 0;
+  }
+
   switch (l)
   {
   case 0x0f:

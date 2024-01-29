@@ -134,7 +134,8 @@ int ignore_esc=0;
 int autolist=0;
 int autoload=0;
 char autoload_filename[1024];
-
+int chromamode=0;
+unsigned char bordercolour=0x0f;
 
 /* not too many prototypes needed... :-) */
 #ifndef SZ81	/* Added by Thunor */
@@ -369,6 +370,37 @@ void initdisplay(void)
   disp.end_y = disp.height + disp.start_y;
   disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
 }
+
+/* Ensure that chroma and pixels are byte aligned*/
+void adjustChroma(bool start)
+{
+  if (start)
+  {
+    if (!adjustStartX)
+    {
+      if (fullDisplay)
+      {
+        adjustStartX = DISPLAY_F_PIXEL_OFF;
+      }
+      else if (fiveSevenSix)
+      {
+        adjustStartX = DISPLAY_P_PIXEL_OFF;
+      }
+      else
+      {
+        adjustStartX = DISPLAY_N_PIXEL_OFF;
+      }
+    }
+  }
+  else
+  {
+    if (!centreScreen)
+    {
+      adjustStartX = 0;
+    }
+  }
+}
+
 #endif
 
 void initmem()

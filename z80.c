@@ -766,6 +766,13 @@ unsigned int in(int h, int l)
     data |= 64;
 
   if (h == 0x7f && l == 0xef) {
+    if (sdl_emulator.ramsize < 56)
+    {
+#ifdef DEBUG_CHROMA
+      fprintf(stderr, "Insufficient RAM Size for Chroma!\n");
+#endif
+      return 255;
+    }
     return 0; /* chroma available */
   }
 

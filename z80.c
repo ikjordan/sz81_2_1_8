@@ -317,7 +317,7 @@ void mainloop()
     }
 #endif
     v = 0;
-    colour = 0;
+    colour = (bordercolour << 4) + bordercolour;
     ts = 0;
     LastInstruction = LASTINSTNONE;
 
@@ -377,7 +377,7 @@ void mainloop()
             v = mem[addr];
           }
         }
-        v = (op & 128) ? ~v : v;
+        v = (op & 0x80) ? ~v : v;
 
         if (chromamode)
         {
@@ -450,7 +450,7 @@ void mainloop()
     // Plot data in shift register
     // Note subtract 6 as this leaves the smallest positive number
     // of bits to carry to next byte (2)
-    if ((v || colour) &&
+    if ((v || chromamode) &&
         (RasterX >= (disp.start_x - adjustStartX - 6)) &&
         (RasterX < (disp.end_x - adjustStartX)) &&
         (RasterY >= (disp.start_y - adjustStartY)) &&
@@ -704,7 +704,8 @@ static inline void checkvsync(int tolchk)
       if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
     }
     memset(scrnbmp_new, 0x00, disp.length);
-    if (chromamode) memset(scrnbmpc_new, bordercolour << 4, disp.length);
+    if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
+    if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
     RasterY = 0;
     dest = disp.offset + (disp.stride_bit * adjustStartY) + adjustStartX;
   }
@@ -838,7 +839,7 @@ unsigned int out(int h, int l, int a)
       else
       {
         adjustChroma(true);
-        bordercolour = a & 0x0f;
+        bordercolournew = a & 0x0f;
       }
     } else {
 #ifdef DEBUG_CHROMA

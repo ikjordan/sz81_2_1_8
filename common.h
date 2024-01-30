@@ -122,6 +122,7 @@ extern int  adjustStartY;
 /* Chroma variables */
 extern int chromamode;
 extern unsigned char bordercolour;
+extern unsigned char bordercolournew;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);

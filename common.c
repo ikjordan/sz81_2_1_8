@@ -136,6 +136,7 @@ int autoload=0;
 char autoload_filename[1024];
 int chromamode=0;
 unsigned char bordercolour=0x0f;
+unsigned char bordercolournew=0x0f;
 
 /* not too many prototypes needed... :-) */
 #ifndef SZ81	/* Added by Thunor */

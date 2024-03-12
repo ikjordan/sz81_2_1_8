@@ -300,6 +300,30 @@ unsigned char *vga_getgraphmem(void) {
 	return vga_graphmemory;
 }
 
+int cvtChroma(unsigned char c) {
+	int crgb=0;
+
+	switch (c) {
+	  case 0x00 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x00); break;
+	  case 0x01 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x7f); break;
+	  case 0x02 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x00,0x00); break;
+	  case 0x03 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x00,0x7f); break;
+	  case 0x04 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x7f,0x00); break;
+	  case 0x05 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x7f,0x7f); break;
+	  case 0x06 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x7f,0x00); break;
+	  case 0x07 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x7f,0x7f); break;
+	  case 0x08 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x00); break;
+	  case 0x09 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0xff); break;
+	  case 0x0a : crgb=SDL_MapRGB(video.screen->format, 0xff,0x00,0x00); break;
+	  case 0x0b : crgb=SDL_MapRGB(video.screen->format, 0xff,0x00,0xff); break;
+	  case 0x0c : crgb=SDL_MapRGB(video.screen->format, 0x00,0xff,0x00); break;
+	  case 0x0d : crgb=SDL_MapRGB(video.screen->format, 0x00,0xff,0xff); break;
+	  case 0x0e : crgb=SDL_MapRGB(video.screen->format, 0xff,0xff,0x00); break;
+	  case 0x0f : crgb=SDL_MapRGB(video.screen->format, 0xff,0xff,0xff); break;
+	}
+	return crgb;
+}
+
 /***************************************************************************
  * Update Video                                                            *
  ***************************************************************************/
@@ -368,11 +392,15 @@ void sdl_video_update(void) {
 	if (video.redraw) {
 		video.redraw = FALSE;
 		/* Wipe the entire screen surface */
+		if (chromamode) {
+			colourRGB = cvtChroma(bordercolour);
+		} else {
 		#ifdef SDL_DEBUG_VIDEO
 			colourRGB = SDL_MapRGB(video.screen->format, 0x0, 0x80, 0xc0);
 		#else
 			colourRGB = bg_colourRGB;
 		#endif
+		}
 		if (SDL_FillRect(video.screen, NULL, colourRGB) < 0) {
 			fprintf(stderr, "%s: FillRect error: %s\n", __func__, SDL_GetError ());
 			exit(1);
@@ -391,50 +419,102 @@ void sdl_video_update(void) {
 		{
 			Uint16* screen_pixels = video.screen->pixels;
 
-			if (video.scale > 2)
+			if (chromamode)
 			{
-				int line1 = disp.width * 3;
-				int line2 = disp.width * 6;
-				for (srcy = 0; srcy < disp.height; srcy++)
+				if (video.scale > 2)
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					int line1 = disp.width * 3;
+					int line2 = disp.width * 6;
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = cvtChroma(*pvga++);
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+						}
+						offset += line2;
 					}
-					offset += line2;
-				}
-			} else if (video.scale > 1)
-			{
-				int line = disp.width * 2;
-				for (srcy = 0; srcy < disp.height; srcy++)
+				} else if (video.scale > 1)
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					int line = disp.width * 2;
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line + offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = cvtChroma(*pvga++);
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+						}
+						offset += line;
 					}
-					offset += line;
-				}
-			} else
-			{
-				for (srcy = 0; srcy < disp.height; srcy++)
+				} else
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							screen_pixels[offset++] = cvtChroma(*pvga++);
+						}
+					}
+				}
+			}
+			else
+			{
+				if (video.scale > 2)
+				{
+					int line1 = disp.width * 3;
+					int line2 = disp.width * 6;
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+						}
+						offset += line2;
+					}
+				} else if (video.scale > 1)
+				{
+					int line = disp.width * 2;
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+						}
+						offset += line;
+					}
+				} else
+				{
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset++] = colourRGB;
+						}
 					}
 				}
 			}
@@ -443,50 +523,102 @@ void sdl_video_update(void) {
 		{
 			Uint32* screen_pixels = video.screen->pixels;
 
-			if (video.scale > 2)
+			if (chromamode)
 			{
-				int line1 = disp.width * 3;
-				int line2 = disp.width * 6;
-				for (srcy = 0; srcy < disp.height; srcy++)
+				if (video.scale > 2)
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					int line1 = disp.width * 3;
+					int line2 = disp.width * 6;
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line1 + offset] = colourRGB;
-						screen_pixels[line2 + offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = cvtChroma(*pvga++);
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+						}
+						offset += line2;
 					}
-					offset += line2;
-				}
-			} else if (video.scale > 1)
-			{
-				int line = disp.width * 2;
-				for (srcy = 0; srcy < disp.height; srcy++)
+				} else if (video.scale > 1)
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					int line = disp.width * 2;
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line + offset++] = colourRGB;
-						screen_pixels[offset] = colourRGB;
-						screen_pixels[line + offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = cvtChroma(*pvga++);
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+						}
+						offset += line;
 					}
-					offset += line;
-				}
-			} else
-			{
-				for (srcy = 0; srcy < disp.height; srcy++)
+				} else
 				{
-					for (srcx = 0 ;srcx < disp.width; srcx++)
+					for (srcy = 0; srcy < disp.height; srcy++)
 					{
-						colourRGB = *pvga++ ? colour1RGB : colour0RGB;
-						screen_pixels[offset++] = colourRGB;
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							screen_pixels[offset++] = cvtChroma(*pvga++);
+						}
+					}
+				}
+			}
+			else
+			{
+				if (video.scale > 2)
+				{
+					int line1 = disp.width * 3;
+					int line2 = disp.width * 6;
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line1 + offset] = colourRGB;
+							screen_pixels[line2 + offset++] = colourRGB;
+						}
+						offset += line2;
+					}
+				} else if (video.scale > 1)
+				{
+					int line = disp.width * 2;
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+							screen_pixels[offset] = colourRGB;
+							screen_pixels[line + offset++] = colourRGB;
+						}
+						offset += line;
+					}
+				} else
+				{
+					for (srcy = 0; srcy < disp.height; srcy++)
+					{
+						for (srcx = 0 ;srcx < disp.width; srcx++)
+						{
+							colourRGB = *pvga++ ? colour1RGB : colour0RGB;
+							screen_pixels[offset++] = colourRGB;
+						}
 					}
 				}
 			}

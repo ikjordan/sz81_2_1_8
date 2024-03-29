@@ -17,6 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+
 #include <string.h> /* for memset/memcpy */
 #include <stdbool.h>
 #include <stdio.h>
@@ -100,15 +101,13 @@ static int VSYNC_TOLERANCEMAX = SCAN50 + 100;
 static const int HSYNC_START = 16;
 static const int HSYNC_END = 32;
 static const int HLEN = HLENGTH;
-
-static const int tstate_jump = 8; // Step up to 8 tstates at a time
+static const int MAX_JMP = 8;
 
 static int RasterX = 0;
 static int RasterY = 0;
 static int dest;
 
 static int int_pending, nmi_pending, hsync_pending;
-
 static int NMI_generator;
 static int VSYNC_state, HSYNC_state, SYNC_signal;
 static int psync, sync_len;
@@ -119,7 +118,7 @@ static bool rowcounter_hold = false;
 static inline void checkhsync(int tolchk);
 static inline void checkvsync(int tolchk);
 static inline void checksync(int inc);
-static void anyout();
+static void anyout(void);
 static void vsync_raise(void);
 static void vsync_lower(void);
 static inline int z80_interrupt(void);
@@ -317,9 +316,9 @@ void mainloop()
     }
 #endif
     v = 0;
-    colour = (bordercolour << 4) + bordercolour;
     ts = 0;
     LastInstruction = LASTINSTNONE;
+    colour = (bordercolour << 4) + bordercolour;
 
     if (intsample && !((radjust - 1) & 64) && iff1)
       int_pending = 1;
@@ -339,30 +338,30 @@ void mainloop()
       // Get the next op, calculate the next byte to display and execute the op
       op = fetchm(pc);
 
-      if (m1not && pc < 0xC000)
+      if (m1not && pc<0xC000)
       {
         videodata = false;
       }
       else
       {
-        videodata = (pc & 0x8000) ? true : false;
+        videodata = (pc&0x8000) ? true: false;
       }
 
-      if (videodata && !(op & 64))
+      if(videodata && !(op&64))
       {
-        v = 0xff;
+        v=0xff;
 
-        if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
+        if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
         {
           int addr;
-          if (chr128 && i > 0x20 && i & 1)
-            addr = ((i & 0xfe) << 8) | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter;
+          if (chr128 && i>0x20 && i&1)
+            addr = ((i&0xfe)<<8)|((((op&128)>>1)|(op&63))<<3)|rowcounter;
           else
-            addr = ((i & 0xfe) << 8) | ((op & 0x3f) << 3) | rowcounter;
+            addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
 
-          if (UDGEnabled && addr >= 0x1E00 && addr < 0x2000)
+          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
           {
-            v = font[addr - ((op & 0x80) ? 0x1C00 : 0x1E00)];
+            v = mem[addr + ((op&128) ? 0x6800 : 0x6600)];
           }
           else
           {
@@ -371,23 +370,22 @@ void mainloop()
         }
         else
         {
-          int addr = (i << 8) | (r & 0x80) | (radjust & 0x7f);
+          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
           if (useWRX)
           {
             v = mem[addr];
           }
         }
-        v = (op & 0x80) ? ~v : v;
+        v = (op&128)?~v:v;
 
         if (chromamode)
         {
-          if (chromamode & 0x10)
-	          colour = fetch(pc);
-          else
-	          colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+            if (chromamode & 0x10)
+                colour = fetch(pc);
+            else
+                colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
         }
-
-        op = 0; /* the CPU sees a nop */
+        op=0; /* the CPU sees a nop */
       }
       tstore = tstates;
 
@@ -447,6 +445,7 @@ void mainloop()
         if (zx80) hsync_pending = 1;
       break;
     }
+
     // Plot data in shift register
     // Note subtract 6 as this leaves the smallest positive number
     // of bits to carry to next byte (2)
@@ -490,7 +489,7 @@ void mainloop()
 
     do
     {
-      tstate_inc = states_remaining > tstate_jump ? tstate_jump : states_remaining;
+      tstate_inc = states_remaining > MAX_JMP ? MAX_JMP : states_remaining;
       states_remaining -= tstate_inc;
 
       hsync_counter += tstate_inc;
@@ -500,7 +499,9 @@ void mainloop()
       {
         hsync_counter -= HLEN;
         if (!zx80)
+        {
           hsync_pending = 1;
+        }
       }
 
       // Start of HSYNC, and NMI if enabled
@@ -552,7 +553,7 @@ void mainloop()
 
       // NOR the vertical and horizontal SYNC states to create the SYNC signal
       SYNC_signal = (VSYNC_state || HSYNC_state) ? 0 : 1;
-      checksync(since_hstart ? since_hstart : tstate_jump);
+      checksync(since_hstart ? since_hstart : MAX_JMP);
       since_hstart = 0;
     }
     while (states_remaining);
@@ -560,6 +561,7 @@ void mainloop()
     if (tstates >= tsmax)
     {
       tstates -= tsmax;
+
       frames++;
       frame_pause();
     }
@@ -595,7 +597,6 @@ void mainloop()
         sync_len = 0;
 
         /* ULA */
-
         NMI_generator = 0;
         int_pending = 0;
         hsync_pending = 0;
@@ -674,13 +675,13 @@ static inline int nmi_interrupt(void)
 /* Normally, these sync checks are done by the TV :-) */
 static inline void checkhsync(int tolchk)
 {
-  if ((!tolchk && sync_len >= HSYNC_MINLEN && sync_len <= (HSYNC_MAXLEN + tstate_jump) && RasterX >= HSYNC_TOLERANCEMIN) ||
+  if ((!tolchk && sync_len >= HSYNC_MINLEN && sync_len <= (HSYNC_MAXLEN + MAX_JMP) && RasterX >= HSYNC_TOLERANCEMIN) ||
       (tolchk && RasterX >= HSYNC_TOLERANCEMAX))
   {
     if (zx80)
       RasterX = (hsync_counter - HSYNC_END) << 1;
     else
-      RasterX = ((hsync_counter - HSYNC_END) < tstate_jump) ? ((hsync_counter - HSYNC_END) << 1) : 0;
+      RasterX = ((hsync_counter - HSYNC_END) < MAX_JMP) ? ((hsync_counter - HSYNC_END) << 1) : 0;
     RasterY++;
     dest += disp.stride_bit;
   }
@@ -691,12 +692,12 @@ static inline void checkvsync(int tolchk)
   if ((!tolchk && sync_len >= VSYNC_MINLEN && RasterY >= VSYNC_TOLERANCEMIN) ||
       (tolchk && RasterY >= VSYNC_TOLERANCEMAX))
   {
-
     if (sync_len>(int)tsmax)
     {
       // If there has been no sync for an entire frame then blank the screen
       memset(scrnbmp, 0xff, disp.length);
       sync_len = 0;
+      printf("Sync failure tolchk %i sync_len %i RasterY = %i\n", tolchk, sync_len, RasterY);
     }
     else
     {
@@ -771,9 +772,9 @@ unsigned int in(int h, int l)
 #ifdef DEBUG_CHROMA
       fprintf(stderr, "Insufficient RAM Size for Chroma!\n");
 #endif
-      return 255;
+      return zx80 ? 0x40 : 0xFF;
     }
-    return 0; /* chroma available */
+    return zx80 ? 0x02 : 0x02; /* Chroma available */
   }
 
   if (!(l & 1))
@@ -832,12 +833,12 @@ unsigned int in(int h, int l)
 unsigned int out(int h, int l, int a)
 {
   if (h==0x7f && l==0xef) {	/* chroma */
+#ifdef DEBUG_CHROMA
+      fprintf(stderr, "0x7fef 0x%x.\n",a);
+#endif      
     chromamode = a&0x30;
     if (chromamode)
     {
-#ifdef DEBUG_CHROMA
-      fprintf(stderr, "Selecting Chroma mode 0x%x.\n",a);
-#endif      
       if (sdl_emulator.ramsize < 56)
       {
         chromamode = 0;
@@ -854,6 +855,7 @@ unsigned int out(int h, int l, int a)
 #endif
       adjustChroma(false);
     }
+    LastInstruction = LASTINSTOUTFF;
     return 0;
   }
 

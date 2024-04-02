@@ -694,8 +694,9 @@ static inline void checkvsync(int tolchk)
   {
     if (sync_len>(int)tsmax)
     {
-      // If there has been no sync for an entire frame then blank the screen
+      // If there has been no sync for an entire frame then blank the screen to black
       memset(scrnbmp, 0xff, disp.length);
+      if (chromamode) memset(scrnbmpc, 0x0, disp.length);
       sync_len = 0;
       printf("Sync failure tolchk %i sync_len %i RasterY = %i\n", tolchk, sync_len, RasterY);
     }

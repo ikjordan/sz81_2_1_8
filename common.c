@@ -49,7 +49,6 @@ unsigned char keyports[9]={0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff, 0xff};
 
 /* this two work on a per-k basis, so we can support 1k etc. properly */
 unsigned char *memptr[64];
-unsigned char font[1024];
 int memattr[64];
 
 int help=0;

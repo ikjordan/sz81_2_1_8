@@ -698,7 +698,6 @@ static inline void checkvsync(int tolchk)
       memset(scrnbmp, 0xff, disp.length);
       if (chromamode) memset(scrnbmpc, 0x0, disp.length);
       sync_len = 0;
-      printf("Sync failure tolchk %i sync_len %i RasterY = %i\n", tolchk, sync_len, RasterY);
     }
     else
     {
@@ -833,7 +832,7 @@ unsigned int in(int h, int l)
 
 unsigned int out(int h, int l, int a)
 {
-  if (h==0x7f && l==0xef) {	/* chroma */
+  if (h==0x7f && l==0xef) {	/* chroma 80 and Chroma 81*/
 #ifdef DEBUG_CHROMA
       fprintf(stderr, "0x7fef 0x%x.\n",a);
 #endif      

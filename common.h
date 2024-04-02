@@ -83,7 +83,6 @@ extern Display_T disp;
 
 extern unsigned char mem[];
 extern unsigned char *memptr[64];
-extern unsigned char font[1024];
 extern int memattr[64];
 extern unsigned char keyports[9];
 extern unsigned long tstates,tsmax;

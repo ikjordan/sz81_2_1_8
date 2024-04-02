@@ -305,13 +305,13 @@ int cvtChroma(unsigned char c) {
 
 	switch (c) {
 	  case 0x00 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x00); break;
-	  case 0x01 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x7f); break;
-	  case 0x02 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x00,0x00); break;
-	  case 0x03 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x00,0x7f); break;
-	  case 0x04 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x7f,0x00); break;
-	  case 0x05 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x7f,0x7f); break;
-	  case 0x06 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x7f,0x00); break;
-	  case 0x07 : crgb=SDL_MapRGB(video.screen->format, 0x7f,0x7f,0x7f); break;
+	  case 0x01 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0xb0); break;
+	  case 0x02 : crgb=SDL_MapRGB(video.screen->format, 0xb0,0x00,0x00); break;
+	  case 0x03 : crgb=SDL_MapRGB(video.screen->format, 0xb0,0x00,0xb0); break;
+	  case 0x04 : crgb=SDL_MapRGB(video.screen->format, 0x00,0xb0,0x00); break;
+	  case 0x05 : crgb=SDL_MapRGB(video.screen->format, 0x00,0xb0,0xb0); break;
+	  case 0x06 : crgb=SDL_MapRGB(video.screen->format, 0xb0,0xb0,0x00); break;
+	  case 0x07 : crgb=SDL_MapRGB(video.screen->format, 0xb0,0xb0,0xb0); break;
 	  case 0x08 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0x00); break;
 	  case 0x09 : crgb=SDL_MapRGB(video.screen->format, 0x00,0x00,0xff); break;
 	  case 0x0a : crgb=SDL_MapRGB(video.screen->format, 0xff,0x00,0x00); break;

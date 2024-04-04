@@ -500,7 +500,8 @@ int sdl_load_file(int parameter, int method) {
 			sdl_filetype_casecmp(sdl_com_line.filename, ".80") == 0)) ||
 			(*sdl_emulator.model == MODEL_ZX81 &&
 			(sdl_filetype_casecmp(sdl_com_line.filename, ".p") == 0 ||
-			sdl_filetype_casecmp(sdl_com_line.filename, ".81") == 0))) {
+			sdl_filetype_casecmp(sdl_com_line.filename, ".81") == 0)) ||
+            (sdl_filetype_casecmp(sdl_com_line.filename, ".p81") == 0)) {
 			/* Copy the filename to fullpath which we'll be using below */
 			strcpy(fullpath, sdl_com_line.filename);
 		} else {
@@ -822,6 +823,16 @@ int sdl_load_file(int parameter, int method) {
 						if (*sdl_emulator.model == MODEL_ZX80) {
 							fread(mem + 0x4000, 1, ramsize * 1024, fp);
 						} else if (*sdl_emulator.model == MODEL_ZX81) {
+
+                            // Skip the file name if .p81
+                            if (sdl_filetype_casecmp(fullpath, ".p81") == 0)
+                            {
+                                char temp[1];
+                                do
+                                {
+                                    fread(temp, 1, 1, fp);
+                                } while (!(temp[0] & 0x80));
+                            }
 							fread(mem + 0x4009, 1, ramsize * 1024 - 9, fp);
 						}
 						/* Copy fullpath across to the load file dialog as
@@ -1126,6 +1137,9 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 					found = TRUE;
 				} else if (filetypes & DIRLIST_FILETYPE_ZX81 &&
 					sdl_filetype_casecmp(direntry->d_name, ".81") == 0) {
+					found = TRUE;
+				} else if (filetypes & (DIRLIST_FILETYPE_ZX81 | DIRLIST_FILETYPE_ZX80) &&
+					sdl_filetype_casecmp(direntry->d_name, ".p81") == 0) {
 					found = TRUE;
 				} else if (filetypes & DIRLIST_FILETYPE_TXT &&
 					sdl_filetype_casecmp(direntry->d_name, ".txt") == 0) {

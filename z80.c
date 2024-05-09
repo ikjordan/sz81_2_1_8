@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include "common.h"
 #include "sound.h"
+#include "sdl_sound.h"
 #include "z80.h"
 #include "sdl.h"
 
@@ -83,6 +84,7 @@ static int LastInstruction;
 #define SCAN60  262       // Number of scanline per frame at 60Hz
 #define HSCAN   (2*HLENGTH)
 #define HTOL    30        // Tolerance in detection of horizontal sync
+#define VTOL    10        // Tolerance in detection of VSYNC
 
 #define VMIN    170
 #define HMIN    8
@@ -95,8 +97,8 @@ static const int HSYNC_MINLEN = HMIN;
 static const int HSYNC_MAXLEN = HMAX;
 static const int VSYNC_MINLEN = VMIN;
 
-static int VSYNC_TOLERANCEMIN = SCAN50 - 100;
-static int VSYNC_TOLERANCEMAX = SCAN50 + 100;
+static int VSYNC_TOLERANCEMIN = SCAN50 - VTOL;
+static int VSYNC_TOLERANCEMAX = SCAN50 + VTOL;
 
 static const int HSYNC_START = 16;
 static const int HSYNC_END = 32;
@@ -105,6 +107,7 @@ static const int MAX_JMP = 8;
 
 static int RasterX = 0;
 static int RasterY = 0;
+static bool frameNotSync = true;
 static int dest;
 
 static int int_pending, nmi_pending, hsync_pending;
@@ -148,6 +151,7 @@ static void vsync_raise(void)
   /* save current pos - in screen coords*/
   vsx = RasterX - (disp.start_x - adjustStartX);
   vsy = RasterY - (disp.start_y - adjustStartY);
+  if ((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) frameNotSync = true;
 }
 
 /* for vsync on -> off */
@@ -155,6 +159,8 @@ static void vsync_lower(void)
 {
   int ny = RasterY - (disp.start_y - adjustStartY);
   int nx = RasterX - (disp.start_x - adjustStartX);
+
+  if ((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) frameNotSync = true;
 
   // Can ignore if nx: ny pair larger than vsx: vsy pair and both all off screen
   if (((ny > vsy) || ((ny == vsy) && (nx >= vsx))) &&
@@ -439,6 +445,10 @@ void mainloop()
             vsync_raise();
           }
         }
+#ifdef OSS_SOUND_SUPPORT
+        if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync) sound_beeper(1);
+#endif
+
       break;
       case LASTINSTOUTFF:
         anyout();
@@ -698,11 +708,13 @@ static inline void checkvsync(int tolchk)
       memset(scrnbmp, 0xff, disp.length);
       if (chromamode) memset(scrnbmpc, 0x0, disp.length);
       sync_len = 0;
+      frameNotSync = true;
     }
     else
     {
       memcpy(scrnbmp, scrnbmp_new, disp.length);
       if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
+      frameNotSync = (RasterY >= VSYNC_TOLERANCEMAX);
     }
     memset(scrnbmp_new, 0x00, disp.length);
     if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
@@ -858,6 +870,9 @@ unsigned int out(int h, int l, int a)
     LastInstruction = LASTINSTOUTFF;
     return 0;
   }
+#ifdef OSS_SOUND_SUPPORT
+    if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync) sound_beeper(0);
+#endif
 
   switch (l)
   {

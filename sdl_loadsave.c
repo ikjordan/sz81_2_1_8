@@ -414,9 +414,6 @@ int sdl_save_file(int parameter, int method) {
 
 			/* Variables from the top of common.c */
 			fwrite_int_little_endian(&interrupted, fp);
-			fwrite_int_little_endian(&nmigen, fp);
-			fwrite_int_little_endian(&hsyncgen, fp);
-			fwrite_int_little_endian(&vsync, fp);
 
 			/* 65654/0x10076 bytes to here for 2.1.7 */
 
@@ -725,9 +722,6 @@ int sdl_load_file(int parameter, int method) {
 
 					/* Variables from the top of common.c */
 					fread_int_little_endian(&interrupted, fp);
-					fread_int_little_endian(&nmigen, fp);
-					fread_int_little_endian(&hsyncgen, fp);
-					fread_int_little_endian(&vsync, fp);
 
 					/* 65654/0x10076 bytes to here for 2.1.7 */
 

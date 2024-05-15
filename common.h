@@ -90,7 +90,6 @@ extern int help,sound,sound_vsync,sound_ay,sound_ay_type,vsync_visuals;
 extern int invert_screen;
 
 extern int interrupted;
-extern int nmigen,hsyncgen,vsync;
 extern int taguladisp;
 extern int autoload;
 extern int scrn_freq;

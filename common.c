@@ -73,7 +73,7 @@ bool useNTSC = false;
 bool centreScreen = false;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
-int vertTol = 100;
+int vertTol = 30;
 
 #ifdef SZ81	/* Added by Thunor */
 int signal_int_flag=0;
@@ -82,7 +82,6 @@ volatile int signal_int_flag=0;
 #endif
 volatile int exit_program_flag=0;
 int interrupted=0;
-int nmigen=0,hsyncgen=0,vsync=0;
 int scrn_freq=2;
 int unexpanded=0;
 int taguladisp=0;
@@ -1656,7 +1655,6 @@ int count;
 for(count=0;count<9;count++)
   keyports[count]=0xff;
 signal_int_flag=0;
-nmigen=hsyncgen=vsync=0;
 zxpframes=zxpcycles=zxpspeed=zxpnewspeed=0;
 zxpheight=0;
 zxppixel=-1;

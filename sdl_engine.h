@@ -94,7 +94,6 @@ extern int sound, sound_vsync;
 extern int sound_ay, sound_ay_type;
 extern int signal_int_flag;
 extern int interrupted;
-extern int nmigen, hsyncgen, vsync;
 extern char *zxpfilename;
 extern int load_selector_state;
 extern int refresh_screen;

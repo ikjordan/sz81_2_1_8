@@ -506,7 +506,7 @@ instr(0xbb,12);
 endinstr;
 
 /* save/load patches */
-
+#ifndef TESTING_LS
 instr(0xfc,4);
 #ifdef SZ81	/* Added by Thunor */
   if(!zx80 && hl < 0x8000)
@@ -538,7 +538,7 @@ instr(0xfd,4);
 #endif
   framewait=1;
 endinstr;
-
+#endif
 default: tstates+=4;
 
 }}

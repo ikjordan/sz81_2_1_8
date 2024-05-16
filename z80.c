@@ -393,6 +393,37 @@ void mainloop()
         }
         op=0; /* the CPU sees a nop */
       }
+#ifdef TESTING_LS
+      else
+      {
+        if (pc == rom_patches.load.start) // load
+        {
+          if(!zx80 && de < 0x8000)
+          {
+            sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
+          }
+          else /* if((!zx80 && de >= 0x8000) || zx80) */
+          {
+            sdl_load_file(zx80 ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
+          }
+          if (!rom_patches.runRom) pc = rom_patches.load.ret;
+          op = fetchm(pc);
+        }
+        else if (pc == rom_patches.save.start) // save
+        {
+          if(zx80)
+          {
+            sdl_save_file(hl,SAVE_FILE_METHOD_UNNAMEDSAVE);
+          }
+          else
+          {
+            sdl_save_file(hl,SAVE_FILE_METHOD_NAMEDSAVE);
+          }
+          if (!rom_patches.runRom) pc = rom_patches.save.ret;
+          op = fetchm(pc);
+        }
+      }
+#endif
       tstore = tstates;
 
       do
@@ -847,7 +878,7 @@ unsigned int out(int h, int l, int a)
   if (h==0x7f && l==0xef) {	/* chroma 80 and Chroma 81*/
 #ifdef DEBUG_CHROMA
       fprintf(stderr, "0x7fef 0x%x.\n",a);
-#endif      
+#endif
     chromamode = a&0x30;
     if (chromamode)
     {

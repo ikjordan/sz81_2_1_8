@@ -69,6 +69,24 @@ typedef struct
 
 extern Display_T disp;
 
+#define TESTING_LS
+#ifdef TESTING_LS
+typedef struct
+{
+    uint16_t start;
+    uint16_t ret;
+} RomPatch_T;
+
+typedef struct
+{
+    RomPatch_T load;
+    RomPatch_T save;
+    bool runRom;
+} RomPatches_T;
+
+extern RomPatches_T rom_patches;
+#endif
+
 /* AY board types */
 #define AY_TYPE_NONE        0
 #define AY_TYPE_QUICKSILVA  1

@@ -26,6 +26,7 @@
 #include "sdl_sound.h"
 #include "z80.h"
 #include "sdl.h"
+#include "loadp.h"
 
 #define parity(a) (partable[a])
 
@@ -69,6 +70,8 @@ int vsy = 0;
 int framewait = 0;
 int ay_reg = 0;
 static int LastInstruction;
+
+#define RUN_ROM 2
 
 #define LASTINSTNONE 0
 #define LASTINSTINFE 1
@@ -148,19 +151,31 @@ static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
 
 static void vsync_raise(void)
 {
+  static int lastRaiseX = 0;
+
   /* save current pos - in screen coords*/
   vsx = RasterX - (disp.start_x - adjustStartX);
   vsy = RasterY - (disp.start_y - adjustStartY);
-  if ((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) frameNotSync = true;
+  if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastRaiseX))
+  {
+    frameNotSync = true;
+    lastRaiseX = RasterX;
+  }
 }
 
 /* for vsync on -> off */
 static void vsync_lower(void)
 {
+  static int lastLowerX = 0;
+
   int ny = RasterY - (disp.start_y - adjustStartY);
   int nx = RasterX - (disp.start_x - adjustStartX);
 
-  if ((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) frameNotSync = true;
+  if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastLowerX))
+  {
+    frameNotSync = true;
+    lastLowerX = RasterX;
+  }
 
   // Can ignore if nx: ny pair larger than vsx: vsy pair and both all off screen
   if (((ny > vsy) || ((ny == vsy) && (nx >= vsx))) &&
@@ -398,29 +413,29 @@ void mainloop()
       {
         if (pc == rom_patches.load.start) // load
         {
+          int run_rom;
           if(!zx80 && de < 0x8000)
           {
-            sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
+            run_rom = sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
           }
           else /* if((!zx80 && de >= 0x8000) || zx80) */
           {
-            sdl_load_file(zx80 ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
+            run_rom = sdl_load_file(zx80 ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
           }
-          if (!rom_patches.runRom) pc = rom_patches.load.ret;
-          op = fetchm(pc);
+          if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
+          {
+            pc = rom_patches.load.ret;
+            op = fetchm(pc);
+          }
         }
         else if (pc == rom_patches.save.start) // save
         {
-          if(zx80)
+          int run_rom = sdl_save_file(hl, zx80 ? SAVE_FILE_METHOD_UNNAMEDSAVE : SAVE_FILE_METHOD_NAMEDSAVE);
+          if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
           {
-            sdl_save_file(hl,SAVE_FILE_METHOD_UNNAMEDSAVE);
+            pc = rom_patches.save.ret;
+            op = fetchm(pc);
           }
-          else
-          {
-            sdl_save_file(hl,SAVE_FILE_METHOD_NAMEDSAVE);
-          }
-          if (!rom_patches.runRom) pc = rom_patches.save.ret;
-          op = fetchm(pc);
         }
       }
 #endif
@@ -477,7 +492,10 @@ void mainloop()
           }
         }
 #ifdef OSS_SOUND_SUPPORT
-        if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync) sound_beeper(1);
+        if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+        {
+            sound_beeper(1);
+        }
 #endif
 
       break;
@@ -800,16 +818,10 @@ static void anyout(void)
 
 unsigned int in(int h, int l)
 {
-  int ts = 0; /* additional cycles*256 */
-  static int tapemask = 0;
-  int data = 0; /* = 0x80 if no tape noise (?) */
+  int data = 0x80;
 
-  tapemask++;
-  data |= (tapemask & 0x0100) ? 0x80 : 0;
-  if (useNTSC)
-    data |= 64;
-
-  if (h == 0x7f && l == 0xef) {
+  if (h == 0x7f && l == 0xef)
+  {
     if (sdl_emulator.ramsize < 56)
     {
 #ifdef DEBUG_CHROMA
@@ -827,38 +839,46 @@ unsigned int in(int h, int l)
     if (l == 0x7e)
       return 0; // for Lambda
 
+    if (rom_patches.load.use_rom && ((pc == rom_patches.in.val1) ||
+                                     (pc == rom_patches.in.val2) ||
+                                     (pc == rom_patches.in.val3) ))
+    {
+        data = loadPGetBit() ? 0x00 : 0x80;
+        if (useNTSC) data |= 0x40;
+    }
+
     switch (h)
     {
-    case 0xfe:
-      return (ts | (keyports[0] ^ data));
-    case 0xfd:
-      return (ts | (keyports[1] ^ data));
-    case 0xfb:
-      return (ts | (keyports[2] ^ data));
-    case 0xf7:
-      return (ts | (keyports[3] ^ data));
-    case 0xef:
-      return (ts | (keyports[4] ^ data));
-    case 0xdf:
-      return (ts | (keyports[5] ^ data));
-    case 0xbf:
-      return (ts | (keyports[6] ^ data));
-    case 0x7f:
-      return (ts | (keyports[7] ^ data));
+      case 0xfe:
+        return (keyports[0] ^ data);
+      case 0xfd:
+        return (keyports[1] ^ data);
+      case 0xfb:
+        return (keyports[2] ^ data);
+      case 0xf7:
+        return (keyports[3] ^ data);
+      case 0xef:
+        return (keyports[4] ^ data);
+      case 0xdf:
+        return (keyports[5] ^ data);
+      case 0xbf:
+        return (keyports[6] ^ data);
+      case 0x7f:
+        return (keyports[7] ^ data);
 
-    default:
-    {
-      int i, mask, retval = 0xff;
-      /* some games (e.g. ZX Galaxians) do smart-arse things
-        * like zero more than one bit. What we have to do to
-        * support this is AND together any for which the corresponding
-        * bit is zero.
+      default:
+      {
+        int i, mask, retval = 0xff;
+        /* some games (e.g. ZX Galaxians) do smart-arse things
+         * like zero more than one bit. What we have to do to
+         * support this is AND together any for which the corresponding
+         * bit is zero.
         */
-      for (i = 0, mask = 1; i < 8; i++, mask <<= 1)
-        if (!(h & mask))
-          retval &= keyports[i];
-      return (ts | (retval ^ data));
-    }
+        for (i = 0, mask = 1; i < 8; i++, mask <<= 1)
+          if (!(h & mask))
+            retval &= keyports[i];
+        return (retval ^ data);
+      }
     }
   }
 
@@ -870,14 +890,15 @@ unsigned int in(int h, int l)
   default:
     break;
   }
-  return (255);
+  return 0;
 }
 
 unsigned int out(int h, int l, int a)
 {
-  if (h==0x7f && l==0xef) {	/* chroma 80 and Chroma 81*/
+  if (h==0x7f && l==0xef)
+  {	/* chroma 80 and Chroma 81*/
 #ifdef DEBUG_CHROMA
-      fprintf(stderr, "0x7fef 0x%x.\n",a);
+    fprintf(stderr, "0x7fef 0x%x.\n",a);
 #endif
     chromamode = a&0x30;
     if (chromamode)
@@ -901,8 +922,12 @@ unsigned int out(int h, int l, int a)
     LastInstruction = LASTINSTOUTFF;
     return 0;
   }
+
 #ifdef OSS_SOUND_SUPPORT
-    if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync) sound_beeper(0);
+  if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+  {
+    sound_beeper(0);
+  }
 #endif
 
   switch (l)
@@ -937,6 +962,12 @@ unsigned int out(int h, int l, int a)
     break;
 
   case 0xff: // default out handled below
+    if (pc == 0x32A)
+    {
+      static unsigned long last = 65000;
+      printf("%04x %02x %lu\n", pc, a, (tstates + tsmax - last) % tsmax);
+      last = tstates;
+    }
     break;
 
   default:

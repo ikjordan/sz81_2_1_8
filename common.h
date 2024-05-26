@@ -75,13 +75,21 @@ typedef struct
 {
     uint16_t start;
     uint16_t ret;
+    bool use_rom;
 } RomPatch_T;
+
+typedef struct
+{
+    uint16_t val1;
+    uint16_t val2;
+    uint16_t val3;
+} RomInPatch_T;
 
 typedef struct
 {
     RomPatch_T load;
     RomPatch_T save;
-    bool runRom;
+    RomInPatch_T in;
 } RomPatches_T;
 
 extern RomPatches_T rom_patches;

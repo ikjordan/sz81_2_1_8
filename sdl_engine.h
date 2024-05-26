@@ -50,6 +50,7 @@
 
 #define TRUE 1
 #define FALSE 0
+#define REPEAT 2
 #define UNDEFINED -1
 
 /* Component IDs */

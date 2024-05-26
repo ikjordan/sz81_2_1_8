@@ -54,7 +54,6 @@ int memattr[64];
 int help=0;
 int sound=0;
 int sound_vsync=0,sound_ay=0,sound_ay_type=AY_TYPE_NONE;
-int load_hook=1,save_hook=1;
 int vsync_visuals=1;
 int invert_screen=0;
 
@@ -73,6 +72,8 @@ bool useNTSC = false;
 bool centreScreen = false;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
+bool romLoad = false;
+bool romSave = false;
 int vertTol = 30;
 
 #ifdef SZ81	/* Added by Thunor */
@@ -284,34 +285,10 @@ else
 #endif
 }
 
-#ifdef TESTING_LS
 RomPatches_T rom_patches;
-#endif
 
 void zx81hacks()
 {
-/* patch save routine */
-#ifndef TESTING_LS
-if(save_hook)
-  {
-// misc unused operation
-  mem[0x2fc]=0xed; mem[0x2fd]=0xfd;
-  // jp 0x0207 selects slow mode
-
-  mem[0x2fe]=0xc3; mem[0x2ff]=0x07; mem[0x300]=0x02;
-  }
-
-/* patch load routine */
-if(load_hook)
-  {
-  // ex de,hl
-  mem[0x347]=0xeb;
-  // misc unused operation
-  mem[0x348]=0xed; mem[0x349]=0xfc;
-  // jp 0x0207 selects slow mode
-  mem[0x34a]=0xc3; mem[0x34b]=0x07; mem[0x34c]=0x02;
-  }
-#else
   rom_patches.save.start = 0x2fc;
   rom_patches.save.ret = 0x207;
   rom_patches.save.use_rom = true;
@@ -321,41 +298,19 @@ if(load_hook)
   rom_patches.in.val1 = 0x353;
   rom_patches.in.val2 = 0x38C;
   rom_patches.in.val3 = 0x0;
-#endif
 }
-
 
 void zx80hacks()
 {
-#ifndef TESTING_LS
-/* patch save routine */
-if(save_hook)
-  {
-   // misc unused operation
-  mem[0x1b6]=0xed; mem[0x1b7]=0xfd;
-  // jp 0x0283
-  mem[0x1b8]=0xc3; mem[0x1b9]=0x83; mem[0x1ba]=0x02;
-  }
-
-/* patch load routine */
-if(load_hook)
-  {
-  // misc unused operation
-  mem[0x206]=0xed; mem[0x207]=0xfc;
-  // jp 0x0283
-  mem[0x208]=0xc3; mem[0x209]=0x83; mem[0x20a]=0x02;
-  }
-#else
   rom_patches.save.start = 0x1b6;
   rom_patches.save.ret = 0x283;
-  rom_patches.save.use_rom = true;
+  rom_patches.save.use_rom = romSave;
   rom_patches.load.start = 0x206;
   rom_patches.load.ret = 0x283;
-  rom_patches.load.use_rom = true;
+  rom_patches.load.use_rom = romLoad;
   rom_patches.in.val1 = 0x225;
   rom_patches.in.val2 = 0x233;
   rom_patches.in.val3 = 0x20d;
-#endif
 }
 
 #ifdef SZ81

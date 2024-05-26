@@ -408,7 +408,6 @@ void mainloop()
         }
         op=0; /* the CPU sees a nop */
       }
-#ifdef TESTING_LS
       else
       {
         if (pc == rom_patches.load.start) // load
@@ -438,7 +437,6 @@ void mainloop()
           }
         }
       }
-#endif
       tstore = tstates;
 
       do
@@ -962,12 +960,6 @@ unsigned int out(int h, int l, int a)
     break;
 
   case 0xff: // default out handled below
-    if (pc == 0x32A)
-    {
-      static unsigned long last = 65000;
-      printf("%04x %02x %lu\n", pc, a, (tstates + tsmax - last) % tsmax);
-      last = tstates;
-    }
     break;
 
   default:

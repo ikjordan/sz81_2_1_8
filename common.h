@@ -69,8 +69,6 @@ typedef struct
 
 extern Display_T disp;
 
-#define TESTING_LS
-#ifdef TESTING_LS
 typedef struct
 {
     uint16_t start;
@@ -93,7 +91,6 @@ typedef struct
 } RomPatches_T;
 
 extern RomPatches_T rom_patches;
-#endif
 
 /* AY board types */
 #define AY_TYPE_NONE        0
@@ -138,6 +135,9 @@ extern bool useNTSC;
 extern bool centreScreen;
 extern bool fullDisplay;
 extern bool fiveSevenSix;
+extern bool romLoad;
+extern bool romSave;
+
 extern int  vertTol;
 
 extern int  adjustStartX;

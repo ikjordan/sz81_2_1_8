@@ -121,7 +121,6 @@ int loadPGetBit(void)
         // Has the current pulse completed?
         if (tpulse > pulse_length_max)
         {
-            //printf("Pulse: %lu %u\n", tstates, tpulse);
             tpulse -= pulse_length_max;
 
             switch (pulse_state)

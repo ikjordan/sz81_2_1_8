@@ -841,8 +841,8 @@ unsigned int in(int h, int l)
                                      (pc == rom_patches.in.val2) ||
                                      (pc == rom_patches.in.val3) ))
     {
-        data = loadPGetBit() ? 0x00 : 0x80;
-        if (useNTSC) data |= 0x40;
+        data = useNTSC ? 0x40 : 0;
+        data |= loadPGetBit() ? 0x0 : 0x80; // Reversed as use xor below
     }
 
     switch (h)

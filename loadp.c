@@ -54,7 +54,7 @@ bool loadPInitialise(char* fullpath, int filename, bool zx80)
     printf("loadPInitialise: P: %s, F: %04x, zx80 %c\n", fullpath, filename, zx80 ? 'T' : 'F');
 #endif
     initialised = false;
-    name_sent = false;
+    name_sent = zx80;       // zx80 files have no name
     name_addr = (filename < 0x8000) ? filename : 0;
 
     if (fp)
@@ -66,17 +66,15 @@ bool loadPInitialise(char* fullpath, int filename, bool zx80)
 
     if (fp)
     {
-        if (zx80)
+        if ((!zx80) && (sdl_filetype_casecmp(fullpath, ".p81") == 0))
         {
-            name_sent = true;
-        }
-        else
-        {
-            if (sdl_filetype_casecmp(fullpath, ".p81") == 0)
-            {
-                // skip the name in the file
-                while (!(fgetc(fp) & 0x80));
-            }
+            // Skip the name in the file, as it may differ from
+            // the name supplied, and we always want to match.
+            // Strictly a p81 file should not be loaded on a zx80, but this
+            // allows for the "hack" where the same p81 file can be loaded to both
+            // zx80 and zx81 by using a 9 character name to offset the start of
+            // memory load address
+            while (!(fgetc(fp) & 0x80));
         }
         ltstate = LOADP_INITIAL_TCOUNT;
         initialised = true;
@@ -97,7 +95,7 @@ void loadPUninitialise(void)
 
 int loadPGetBit(void)
 {
-    int ret = 0;
+    int pulse = 0;      // By default return a low pulse
 
     if (initialised)
     {
@@ -136,7 +134,6 @@ int loadPGetBit(void)
                     if (max_count  == pulse_count)
                     {
                         pulse_state = SILENCE_PULSE;
-                        //pulse_length_max = bit_pos ? LOADP_SILENCE_LENGTH : LOADP_SILENCE_BYTE_LENGTH;
                         pulse_length_max = LOADP_SILENCE_LENGTH;
                     }
                     else
@@ -165,9 +162,9 @@ int loadPGetBit(void)
                 break;
             }
         }
-        ret = (pulse_state == HIGH_PULSE) ? 1: 0;
+        pulse = (pulse_state == HIGH_PULSE) ? 1: 0;
     }
-    return ret;
+    return pulse;
 }
 
 static void moveToNextByte(void)

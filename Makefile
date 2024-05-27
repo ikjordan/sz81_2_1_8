@@ -23,7 +23,7 @@ SOUNDDEF=-DOSS_SOUND_SUPPORT
 
 # You won't need to alter these
 TARGET=$(shell cat TARGET)
-SOURCES=sdl_main.c common.c sound.c z80.c sdl_engine.c sdl_hotspots.c \
+SOURCES=sdl_main.c common.c sound.c z80.c loadp.c sdl_engine.c sdl_hotspots.c \
 	sdl_input.c sdl_loadsave.c sdl_resources.c sdl_sound.c sdl_video.c
 OBJECTS=$(patsubst %.c, %.o, $(SOURCES))
 VERSION=$(shell cat VERSION)

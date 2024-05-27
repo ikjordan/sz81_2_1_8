@@ -54,7 +54,6 @@ int memattr[64];
 int help=0;
 int sound=0;
 int sound_vsync=0,sound_ay=0,sound_ay_type=AY_TYPE_NONE;
-int load_hook=1,save_hook=1;
 int vsync_visuals=1;
 int invert_screen=0;
 
@@ -73,6 +72,8 @@ bool useNTSC = false;
 bool centreScreen = false;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
+bool romLoad = false;
+bool romSave = false;
 int vertTol = 30;
 
 #ifdef SZ81	/* Added by Thunor */
@@ -190,7 +191,7 @@ exit_program_flag=1;
 #ifndef SZ81	/* Added by Thunor */
 void startsigsandtimer()
 {
-int f,tmp=1000/50;	/* 50 ints/sec */ 
+int f,tmp=1000/50;	/* 50 ints/sec */
 struct sigaction sa;
 struct itimerval itv;
 
@@ -260,9 +261,9 @@ char *fname=libdir(zx80?"zx80.rom":"zx81.rom");
 if((in=fopen(fname,"rb"))!=NULL)
   {
   int siz=(zx80?4096:8192);
-  
+
   fread(mem,1,siz,in);
-  
+
   /* fill first 16k with extra copies of it
    * (not really needed given since improved memptr[] resolution,
    * but what the heck :-))
@@ -270,7 +271,7 @@ if((in=fopen(fname,"rb"))!=NULL)
   memcpy(mem+siz,mem,siz);
   if(zx80)
     memcpy(mem+siz*2,mem,siz*2);
-  
+
   fclose(in);
   }
 else
@@ -284,41 +285,32 @@ else
 #endif
 }
 
+RomPatches_T rom_patches;
 
 void zx81hacks()
 {
-/* patch save routine */
-if(save_hook)
-  {
-  mem[0x2fc]=0xed; mem[0x2fd]=0xfd;
-  mem[0x2fe]=0xc3; mem[0x2ff]=0x07; mem[0x300]=0x02;
-  }
-
-/* patch load routine */
-if(load_hook)
-  {
-  mem[0x347]=0xeb;
-  mem[0x348]=0xed; mem[0x349]=0xfc;
-  mem[0x34a]=0xc3; mem[0x34b]=0x07; mem[0x34c]=0x02;
-  }
+  rom_patches.save.start = 0x2fc;
+  rom_patches.save.ret = 0x207;
+  rom_patches.save.use_rom = true;
+  rom_patches.load.start = 0x347;
+  rom_patches.load.ret = 0x207;
+  rom_patches.load.use_rom = true;
+  rom_patches.in.val1 = 0x353;
+  rom_patches.in.val2 = 0x38C;
+  rom_patches.in.val3 = 0x0;
 }
-
 
 void zx80hacks()
 {
-/* patch save routine */
-if(save_hook)
-  {
-  mem[0x1b6]=0xed; mem[0x1b7]=0xfd;
-  mem[0x1b8]=0xc3; mem[0x1b9]=0x83; mem[0x1ba]=0x02;
-  }
-
-/* patch load routine */
-if(load_hook)
-  {
-  mem[0x206]=0xed; mem[0x207]=0xfc;
-  mem[0x208]=0xc3; mem[0x209]=0x83; mem[0x20a]=0x02;
-  }
+  rom_patches.save.start = 0x1b6;
+  rom_patches.save.ret = 0x283;
+  rom_patches.save.use_rom = romSave;
+  rom_patches.load.start = 0x206;
+  rom_patches.load.ret = 0x283;
+  rom_patches.load.use_rom = romLoad;
+  rom_patches.in.val1 = 0x225;
+  rom_patches.in.val2 = 0x233;
+  rom_patches.in.val3 = 0x20d;
 }
 
 #ifdef SZ81
@@ -471,44 +463,44 @@ for(f=16;f<32;f++)
 #ifdef SZ81	/* Added by Thunor */
 /* z81's ROM and RAM initialisation code is OK for <= 16K RAM but beyond
  * that it requires a little tweaking.
- * 
+ *
  * The following diagram shows the ZX81 + 8K ROM. The ZX80 version is
  * the same except that each 8K ROM region will contain two copies of
  * the 4K ROM.
- * 
+ *
  * RAM less than 16K is mirrored throughout the 16K region.
- * 
+ *
  * The ROM will only detect up to 8000h when setting RAMTOP, therefore
  * having more than 16K RAM will require RAMTOP to be set by the user
  * (or user program) to either 49152 for 32K or 65535 for 48/56K.
- * 
+ *
  *           1K to 16K       32K           48K           56K      Extra Info.
- * 
- *  65535  +----------+  +----------+  +----------+  +----------+ 
+ *
+ *  65535  +----------+  +----------+  +----------+  +----------+
  * (FFFFh) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | DFILE can be
  *         | mirrored |  | mirrored |  |          |  |          | wholly here.
- *         |          |  |          |  |          |  |          | 
+ *         |          |  |          |  |          |  |          |
  *         |          |  |          |  |          |  |          | BASIC variables
  *         |          |  |          |  |          |  |          | can go here.
- *  49152  +----------+  +----------+  +----------+  +----------+ 
+ *  49152  +----------+  +----------+  +----------+  +----------+
  * (C000h) | 8K ROM   |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | BASIC program
  *         | mirrored |  |          |  |          |  |          | is restricted
  *  40960  +----------+  |          |  |          |  |          | to here.
- * (A000h) | 8K ROM   |  |          |  |          |  |          | 
- *         | mirrored |  |          |  |          |  |          | 
- *  32768  +----------+  +----------+  +----------+  +----------+ 
+ * (A000h) | 8K ROM   |  |          |  |          |  |          |
+ *         | mirrored |  |          |  |          |  |          |
+ *  32768  +----------+  +----------+  +----------+  +----------+
  * (8000h) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | No machine code
  *         |          |  |          |  |          |  |          | beyond here.
- *         |          |  |          |  |          |  |          | 
+ *         |          |  |          |  |          |  |          |
  *         |          |  |          |  |          |  |          | DFILE can be
  *         |          |  |          |  |          |  |          | wholly here.
- *  16384  +----------+  +----------+  +----------+  +----------+ 
- * (4000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K RAM   | 
- *         | mirrored |  | mirrored |  | mirrored |  |          | 
- *   8192  +----------+  +----------+  +----------+  +----------+ 
- * (2000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K ROM   | 
- *         |          |  |          |  |          |  |          | 
- *      0  +----------+  +----------+  +----------+  +----------+ 
+ *  16384  +----------+  +----------+  +----------+  +----------+
+ * (4000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K RAM   |
+ *         | mirrored |  | mirrored |  | mirrored |  |          |
+ *   8192  +----------+  +----------+  +----------+  +----------+
+ * (2000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K ROM   |
+ *         |          |  |          |  |          |  |          |
+ *      0  +----------+  +----------+  +----------+  +----------+
  */
 
 switch(ramsize)
@@ -596,7 +588,7 @@ if(!zxpfilename)
 if((zxpfile=fopen(zxpfilename,"wb"))==NULL)
   {
 #ifdef SZ81	/* Added by Thunor */
-  if (failcnt++ < 10) 
+  if (failcnt++ < 10)
 #endif
   fprintf(stderr,"z81: couldn't open printer file, printing disabled\n");
   return;
@@ -670,7 +662,7 @@ void zxpout(void)
 {
 int i,j,d;
 
-if(!zxpfile) 
+if(!zxpfile)
 #ifdef SZ81	/* Added by Chris */
 	zxpopen();
     if(!zxpfile) return;
@@ -701,7 +693,7 @@ int printer_inout(int is_out,int val)
 if(!is_out)
   {
   /* input */
-  
+
   if(!zxpspeed)
     return 0x3e;
   else
@@ -712,12 +704,12 @@ if(!is_out)
     int sp=zxpnewspeed;
     int x,ans;
     int cpp=440/zxpspeed;
-      
+
     if(frame>400)
       frame=400;
     cycles+=frame*tsmax;
     x=cycles/cpp-64;        /* x-coordinate reached */
-      
+
     while(x>320)
       {           /* if we are on another line, */
       pix=-1;              /* find out where we are */
@@ -760,7 +752,7 @@ else
   int cycles=tstates-zxpcycles;
   int i,x;
   int cpp=440/zxpspeed;
-      
+
   if(frame>400)
     frame=400; /* limit height of blank paper */
   cycles+=frame*tsmax;
@@ -770,7 +762,7 @@ else
       zxpline[i]=zxpstylus;
   if(x>=256 && zxppixel<256)
     zxpout();
-      
+
   while(x>=320)
     {          /* move to next line */
     zxpcycles+=cpp*384;
@@ -801,7 +793,7 @@ else
       zxpout();
       }
     zxpspeed=zxpstylus=0;
-    
+
     /* this is pretty frequent (on a per-char-line basis!),
      * but it's the only time we can really do it automagically.
      */
@@ -820,7 +812,7 @@ else
         zxpnewspeed=0;
       }
     }
-  } 
+  }
 
 return(0);
 }
@@ -833,12 +825,12 @@ return(0);
  * WARNING: this only covers 0<=char<=63!
  */
 static char zx2ascii[64]={
-/*  0- 9 */ ' ', '_', '_', '_', '_', '_', '_', '_', '_', '_', 
-/* 10-19 */ '_', '\'','#', '$', ':', '?', '(', ')', '>', '<', 
-/* 20-29 */ '=', '+', '-', '*', '/', ';', ',', '.', '0', '1', 
-/* 30-39 */ '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 
-/* 40-49 */ 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 
-/* 50-59 */ 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 
+/*  0- 9 */ ' ', '_', '_', '_', '_', '_', '_', '_', '_', '_',
+/* 10-19 */ '_', '\'','#', '$', ':', '?', '(', ')', '>', '<',
+/* 20-29 */ '=', '+', '-', '*', '/', ';', ',', '.', '0', '1',
+/* 30-39 */ '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+/* 40-49 */ 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+/* 50-59 */ 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
 /* 60-63 */ 'w', 'x', 'y', 'z'
 };
 #endif
@@ -860,12 +852,12 @@ else
   /* so the filename is at ptr, in the ZX81 char set, with the last char
    * having bit 7 set. First, get that name in ASCII.
    */
-  
+
   memset(fname,0,sizeof(fname));
   do
     *dptr++=zx2ascii[(*ptr)&63];
   while((*ptr++)<128 && dptr<fname+sizeof(fname)-3);
-  
+
   /* add '.p' */
   strcat(fname,".p");
   }
@@ -905,12 +897,12 @@ else
   if(a>=32768) 	/* they did LOAD "" */
     {
     got_ascii_already=1;
-    
+
     if(autoload && !autolist)	/* autoload stuff did it */
       {
       refresh_screen=1;		/* make sure we redraw screen soon */
       strcpy(fname,autoload_filename);	/* guaranteed to be ok */
-      
+
       /* add .p if needed */
       if(strlen(fname)<sizeof(fname)-3 &&
          (strlen(fname)<=2 || strcasecmp(fname+strlen(fname)-2,".p")!=0))
@@ -933,7 +925,7 @@ else
       strcpy(fname,ret);
       }
     }
-  
+
   /* so the filename is at ptr, in the ZX81 char set, with the last char
    * having bit 7 set. First, get that name in ASCII.
    */
@@ -941,12 +933,12 @@ else
     {
     /* test for Xtender-style LOAD " STOP " to quit */
     if(*ptr==227) exit_program();
-    
+
     memset(fname,0,sizeof(fname));
     do
       *dptr++=zx2ascii[(*ptr)&63];
     while((*ptr++)<128 && dptr<fname+sizeof(fname)-3);
-    
+
     /* add '.p' */
     strcat(fname,".p");
     }
@@ -1223,7 +1215,7 @@ if(sound_enabled)
    * but it's the best way.
    */
   sound_frame();
-  
+
 #ifndef SZ81	/* Added by Thunor. We don't block on sound but continue */
   if(interrupted<2)
     interrupted=1;
@@ -1357,7 +1349,7 @@ for(y=0;y<24;y++,ptr++)
     {
     c=*ptr;
     inv=(c&128); c&=63;
-    
+
     for(b=0;b<8;b++,optr+=DISPLAY_WIDTH/8)
       {
       d=cptr[c*8+b];
@@ -1366,7 +1358,7 @@ for(y=0;y<24;y++,ptr++)
       }
     optr-=DISPLAY_WIDTH;
     }
-  
+
   optr=optrsav+DISPLAY_WIDTH;
   }
 }
@@ -1383,18 +1375,18 @@ int lastk0=0,lastk1=0;
 for(y=0;y<8;y++)		/* 8 half-rows */
   {
   b=(keyports[y]|0xe0);
-  
+
   /* contribute to it if key was pressed */
   if((b&31)!=31)
     {
     /* set y bit in lastk0 if not shift */
     if(!(y==0 && ((b&31)|1)==31)) lastk0|=(1<<y);
-    
+
     /* now set pos-in-half-row bit(s) in lastk1 */
     b=(((~b)&31)<<1);
     /* move bit 1 of b back down to bit 0 if it's shift bit */
     if(y==0) b=((b&0xfc)|((b&2)>>1));
-  
+
     lastk1|=b;
     }
   }
@@ -1473,7 +1465,7 @@ do
   selscrn_to_scrnbmp(selscrn);
   refresh_screen=1;
   update_scrn();
-  
+
   numfiles=0;
   maxlen=-1;
   top=cursel=0;
@@ -1502,7 +1494,7 @@ do
           return(NULL);
           }
         }
-    
+
       /* copy filename */
       if(isdir)
         {
@@ -1513,7 +1505,7 @@ do
         }
       else
         strcpy(files+files_ofs,entry->d_name);
-    
+
       files_ofs+=len+1;
       if(len+1>maxlen) maxlen=len+1;
       numfiles++;
@@ -1562,9 +1554,9 @@ do
     /* hang around, update real display, read keys */
     frame_pause();
     do_interrupt();
-    
+
     key=make_lastk();
-  
+
     /* auto-repeat stuff */
     virtkey=key;
     if(key!=oldkey)
@@ -1584,7 +1576,7 @@ do
             krsubh=0;
           }
       }
-  
+
     switch(virtkey)
       {
       case 0xfdfb:	/* q */
@@ -1604,7 +1596,7 @@ do
     if(cursel>=numfiles) cursel=numfiles-1;
     if(cursel<top) top--;
     if(cursel>=top+height) top++;
-  
+
     oldkey=key;
     }
 
@@ -1626,7 +1618,7 @@ do
   free(filearr);
 
   sel_waitnokeys();
-  
+
   if(quit)
     {
     ignore_esc=0;

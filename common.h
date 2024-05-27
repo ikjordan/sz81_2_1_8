@@ -69,6 +69,29 @@ typedef struct
 
 extern Display_T disp;
 
+typedef struct
+{
+    uint16_t start;
+    uint16_t ret;
+    bool use_rom;
+} RomPatch_T;
+
+typedef struct
+{
+    uint16_t val1;
+    uint16_t val2;
+    uint16_t val3;
+} RomInPatch_T;
+
+typedef struct
+{
+    RomPatch_T load;
+    RomPatch_T save;
+    RomInPatch_T in;
+} RomPatches_T;
+
+extern RomPatches_T rom_patches;
+
 /* AY board types */
 #define AY_TYPE_NONE        0
 #define AY_TYPE_QUICKSILVA  1
@@ -112,6 +135,9 @@ extern bool useNTSC;
 extern bool centreScreen;
 extern bool fullDisplay;
 extern bool fiveSevenSix;
+extern bool romLoad;
+extern bool romSave;
+
 extern int  vertTol;
 
 extern int  adjustStartX;

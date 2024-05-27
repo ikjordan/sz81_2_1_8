@@ -18,6 +18,7 @@
 /* Includes */
 #include "sdl_engine.h"
 #include "common.h"
+#include "loadp.h"
 /* Defines */
 
 /* Now unused Variables */
@@ -180,7 +181,7 @@ int save_state_dialog_slots_populate(void) {
  *           if method = SAVE_FILE_METHOD_STATESAVE then parameter holds
  *               the slot number 0 to 8.
  *           for all other methods parameter is ignored.
- *  On exit: returns TRUE on error
+ *  On exit: returns TRUE on error,  REPEAT if prepared for ROM save
  *           else FALSE */
 
 int sdl_save_file(int parameter, int method) {
@@ -197,6 +198,7 @@ int sdl_save_file(int parameter, int method) {
 	int length = 0;
 	bool found = false;
 	bool zx80 = false;
+    bool repeat = false;
 
 	if ((method == SAVE_FILE_METHOD_NAMEDSAVE) ||
 	    (method == SAVE_FILE_METHOD_UNNAMEDSAVE)) {
@@ -421,7 +423,8 @@ int sdl_save_file(int parameter, int method) {
 			if (found) {
 				fwrite(mem + start, 1, length, fp);
 			}
-			else {
+			else
+            {
 				/* Write up to and including E_LINE */
 				if (*sdl_emulator.model == MODEL_ZX80) {
 					fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
@@ -431,6 +434,11 @@ int sdl_save_file(int parameter, int method) {
 				/* Copy fullpath across to the load file dialog as
 				* then we have a record of what was last saved */
 				strcpy(load_file_dialog.loaded, fullpath);
+
+                if (rom_patches.save.use_rom)
+                {
+                    repeat = true;
+                }
 			}
 		}
 		/* Close the file now as we've finished with it */
@@ -457,7 +465,7 @@ int sdl_save_file(int parameter, int method) {
 			load_file_dialog_dirlist_populate(TRUE);
 		}
 	}
-	return retval;
+	return repeat ? REPEAT : retval;
 }
 
 /***************************************************************************
@@ -471,7 +479,7 @@ int sdl_save_file(int parameter, int method) {
  *           if method = LOAD_FILE_METHOD_STATELOAD then parameter holds
  *               the slot number 0 to 8.
  *           for all other methods parameter is ignored.
- *  On exit: returns TRUE on error
+ *  On exit: returns TRUE on error, REPEAT if prepared for ROM load
  *           else FALSE */
 
 int sdl_load_file(int parameter, int method) {
@@ -483,6 +491,7 @@ int sdl_load_file(int parameter, int method) {
 	FILE *fp;
   	char *extend = 0;
   	int start = -1;
+    bool repeat = false;
 
 	/* If requested, read and set the preset method instead */
 	if (method == LOAD_FILE_METHOD_DETECT) {
@@ -726,8 +735,9 @@ int sdl_load_file(int parameter, int method) {
 					/* 65654/0x10076 bytes to here for 2.1.7 */
 
 				} else {
-					if (method == LOAD_FILE_METHOD_AUTOLOAD || 
-						method == LOAD_FILE_METHOD_FORCEDLOAD) {
+					if (method == LOAD_FILE_METHOD_AUTOLOAD ||
+						method == LOAD_FILE_METHOD_FORCEDLOAD)
+                        {
 						/* To duplicate these values: in mainloop in z80.c around
 						 * line 189, change #if 0 to #if 1 and recompile. Run
 						 * the emulator, load a suitably sized program by typing
@@ -812,23 +822,30 @@ int sdl_load_file(int parameter, int method) {
 						ramsize = sdl_emulator.ramsize;
 					}
 
-					if (start < 0) {
-						/* Read in up to 48K of data */
-						if (*sdl_emulator.model == MODEL_ZX80) {
-							fread(mem + 0x4000, 1, ramsize * 1024, fp);
-						} else if (*sdl_emulator.model == MODEL_ZX81) {
-
-                            // Skip the file name if .p81
-                            if (sdl_filetype_casecmp(fullpath, ".p81") == 0)
+					if (start < 0)
+                    {
+                        if (rom_patches.load.use_rom &&
+                            ((method == LOAD_FILE_METHOD_NAMEDLOAD) || (method == LOAD_FILE_METHOD_SELECTLOAD)))
+                        {
+                            repeat = true;
+                        }
+                        else
+                        {
+                            /* Read in up to 48K of data */
+                            if (*sdl_emulator.model == MODEL_ZX80)
                             {
-                                char temp[1];
-                                do
-                                {
-                                    fread(temp, 1, 1, fp);
-                                } while (!(temp[0] & 0x80));
+                                fread(mem + 0x4000, 1, ramsize * 1024, fp);
                             }
-							fread(mem + 0x4009, 1, ramsize * 1024 - 9, fp);
-						}
+                            else if (*sdl_emulator.model == MODEL_ZX81)
+                            {
+                                // Skip the file name if .p81
+                                if (sdl_filetype_casecmp(fullpath, ".p81") == 0)
+                                {
+                                    while (!(fgetc(fp) & 0x80));
+                                }
+                                fread(mem + 0x4009, 1, ramsize * 1024 - 9, fp);
+                            }
+                        }
 						/* Copy fullpath across to the load file dialog as
 						* then we have a record of what was last loaded */
 						strcpy(load_file_dialog.loaded, fullpath);
@@ -893,32 +910,47 @@ int sdl_load_file(int parameter, int method) {
 			}
 		}
 
-		if (retval) {
-			if (method == LOAD_FILE_METHOD_AUTOLOAD) {
+		if (retval)
+        {
+			if (method == LOAD_FILE_METHOD_AUTOLOAD)
+            {
 				fprintf(stderr, "%s: Cannot read from %s\n", __func__, fullpath);
-			} else if (method == LOAD_FILE_METHOD_NAMEDLOAD || 
-				method == LOAD_FILE_METHOD_SELECTLOAD || 
-				method == LOAD_FILE_METHOD_FORCEDLOAD || 
-				method == LOAD_FILE_METHOD_STATELOAD) {
-				/* Warn the user via the GUI that the load failed */
-				if (method == LOAD_FILE_METHOD_STATELOAD) {
-					strcpy(notification.title, "Load State");
-				} else {
-					strcpy(notification.title, "Load");
-				}
-				strcpy(notification.text, "Failed");
-				notification.timeout = NOTIFICATION_TIMEOUT_1250;
-				notification_show(NOTIFICATION_SHOW, &notification);
+			}
+            else
+            {
+                if (method == LOAD_FILE_METHOD_NAMEDLOAD ||
+				     method == LOAD_FILE_METHOD_SELECTLOAD ||
+				     method == LOAD_FILE_METHOD_FORCEDLOAD ||
+				     method == LOAD_FILE_METHOD_STATELOAD)
+                {
+                    /* Warn the user via the GUI that the load failed */
+                    if (method == LOAD_FILE_METHOD_STATELOAD)
+                    {
+                        strcpy(notification.title, "Load State");
+                    } else
+                    {
+					    strcpy(notification.title, "Load");
+				    }
+				    strcpy(notification.text, "Failed");
+				    notification.timeout = NOTIFICATION_TIMEOUT_1250;
+				    notification_show(NOTIFICATION_SHOW, &notification);
+                }
 			}
 		}
+        else
+        {
+            if (repeat && rom_patches.load.use_rom)
+            {
+                loadPInitialise(fullpath, parameter, *sdl_emulator.model == MODEL_ZX80);
+            }
+        }
 	}
 
 	if (method != LOAD_FILE_METHOD_STATELOAD) {
 		/* We've finished with the load file dialog now */
 		load_file_dialog.method = LOAD_FILE_METHOD_NONE;
 	}
-
-	return retval;
+	return repeat ? REPEAT : retval;
 }
 
 /***************************************************************************

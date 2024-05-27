@@ -5,9 +5,9 @@ This repository is based on an obsolete version of the sz81 ZX81 emulator (versi
 
 The EightyOne core has delivered excellent Hires graphics support into sz81. However, this comes at the cost of higher CPU load. This is not an issue for most systems, the lastest sz81 will run perfectly on a Raspberry Pi.
 
-The core code in sz81 version 2.3.x is too CPU intensive to run at 100% emulation speed on a very low specification MCU, such as the ARM M0+ based Raspberry Pi Pico.
+The core code in sz81 version 2.3.x is too CPU intensive to run at 100% emulation speed on a very low specification MCU, such as the ARM M0+ based Raspberry Pi Pico. It is also too processor intensive to exceute at full speed with sound under the RiscOS operating system running on a Raspberry Pi 2 or 3.
 
-The core in version 2.1.8 will run at 100% speed on an overclocked Pi Pico. This repository relects modifications and improvements to the code base, which were triggered by the generation of [picozx81](https://github.com/ikjordan/picozx81)
+The core in version 2.1.8 will run at 100% speed on an overclocked Pi Pico and on early Raspberry Pis running RiscOS. This repository relects modifications and improvements to the code base, which were triggered by the generation of [picozx81](https://github.com/ikjordan/picozx81)
 
 # Configuration changes from original 2.1.8
 ## Extra options in menus
@@ -45,12 +45,12 @@ Saves a p file in "real time". Will display a realistic save screen. If vsync so
 
 **Note:** RAM in 8kB to 16kB automatically enabled if UDG enabled
 ### -vTOL 
-e.g. `-r100` for 100 line vertical sync tolerance.
+e.g. `-v100` for 100 line vertical sync tolerance.
 
 Determines how fast the emulated TV will find vertical lock. The smaller the number, the longer to achieve lock
 
 ## Extra functionality
-+ The ZX81 emulation supports the loading and saving of named blocks. The syntax follows that of [picozx81](https://github.com/ikjordan/picozx81) and [ZXpand](https://github-wiki-see.page/m/charlierobson/ZXpand-Vitamins/wiki/ZXpand---Online-Manual)
++ The ZX81 emulation supports the loading and saving of named blocks. The syntax follows that of [picozx81](https://github.com/ikjordan/picozx81) and [ZXpand](https://github.com/charlierobson/ZXpand-Vitamins/wiki/ZXpand---Online-Manual)
 + Chroma 80 and Chroma 81 video and sound support. 56 kB RAM must be selected to enable Chroma
 + "Real time" load and save effects. Select VSYNC sound to hear load and save sounds
 

@@ -130,7 +130,8 @@ static void vsync_lower(void);
 static inline int z80_interrupt(void);
 static inline int nmi_interrupt(void);
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
-
+static void zx80_loop(void);
+static void zx81_loop(void);
 extern int printer_inout(int is_out, int val);
 
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
@@ -259,7 +260,6 @@ void mainloop()
 {
   intsample = 0;
   framewait = 0;
-  bool videodata;
 
   a = f = b = c = d = e = h = l = a1 = f1 = b1 = c1 = d1 = e1 = h1 = l1 = i = iff1 = iff2 = im = r = 0;
   ixoriy = new_ixoriy = 0;
@@ -292,6 +292,13 @@ void mainloop()
       /* wait for a real frame, to avoid an annoying frame `jump'. */
       framewait = 1;
   }
+
+  zx80 ? zx80_loop() : zx81_loop();
+}
+
+void zx81_loop(void)
+{
+  bool videodata;
   unsigned long ts;
   unsigned long tstore;
   unsigned char v = 0;
@@ -412,27 +419,19 @@ void mainloop()
       {
         if (pc == rom_patches.load.start) // load
         {
-          int run_rom;
-          if(!zx80 && de < 0x8000)
-          {
-            run_rom = sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
-          }
-          else /* if((!zx80 && de >= 0x8000) || zx80) */
-          {
-            run_rom = sdl_load_file(zx80 ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
-          }
+          int run_rom = sdl_load_file(de, (de < 0x800) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
           if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
           {
-            pc = rom_patches.load.ret;
+            pc = rom_patches.load.retAddr;
             op = fetchm(pc);
           }
         }
         else if (pc == rom_patches.save.start) // save
         {
-          int run_rom = sdl_save_file(hl, zx80 ? SAVE_FILE_METHOD_UNNAMEDSAVE : SAVE_FILE_METHOD_NAMEDSAVE);
+          int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
           if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
           {
-            pc = rom_patches.save.ret;
+            pc = rom_patches.save.retAddr;
             op = fetchm(pc);
           }
         }
@@ -474,10 +473,7 @@ void mainloop()
         anyout();
       break;
       case LASTINSTOUTFE:
-        if (!zx80)
-        {
-          NMI_generator = 1;
-        }
+        NMI_generator = 1;
         anyout();
       break;
       case LASTINSTINFE:
@@ -499,7 +495,6 @@ void mainloop()
       break;
       case LASTINSTOUTFF:
         anyout();
-        if (zx80) hsync_pending = 1;
       break;
     }
 
@@ -555,14 +550,11 @@ void mainloop()
       if (hsync_counter >= HLEN)
       {
         hsync_counter -= HLEN;
-        if (!zx80)
-        {
-          hsync_pending = 1;
-        }
+        hsync_pending = 1;
       }
 
       // Start of HSYNC, and NMI if enabled
-      if (hsync_pending == 1 && hsync_counter >= HSYNC_START)
+      if (hsync_pending && hsync_counter >= HSYNC_START)
       {
         if (NMI_generator)
         {
@@ -581,6 +573,8 @@ void mainloop()
         }
 
         HSYNC_state = 1;
+        hsync_pending = 0;
+
         since_hstart = hsync_counter - HSYNC_START + 1;
 
         if (VSYNC_state || rowcounter_hold)
@@ -593,11 +587,338 @@ void mainloop()
           rowcounter++;
           rowcounter &= 7;
         }
-        hsync_pending = 2;
       }
 
       // end of HSYNC
-      if (hsync_pending == 2 && hsync_counter >= HSYNC_END)
+      if (HSYNC_state && hsync_counter >= HSYNC_END)
+      {
+        HSYNC_state = 0;
+        hsync_pending = 0;
+      }
+
+      // NOR the vertical and horizontal SYNC states to create the SYNC signal
+      SYNC_signal = (VSYNC_state || HSYNC_state) ? 0 : 1;
+      checksync(since_hstart ? since_hstart : MAX_JMP);
+      since_hstart = 0;
+    }
+    while (states_remaining);
+
+    if (tstates >= tsmax)
+    {
+      tstates -= tsmax;
+
+      frames++;
+      frame_pause();
+    }
+
+    /* this isn't used for any sort of Z80 interrupts,
+      * purely for the emulator's UI.
+      */
+    if (interrupted)
+    {
+      if (interrupted == 1)
+      {
+        do_interrupt(); /* also zeroes it */
+      }
+      /* I've added these new interrupt types to support a thorough
+        * emulator reset and to do a proper exit i.e. back to main */
+      else if (interrupted == INTERRUPT_EMULATOR_RESET ||
+                interrupted == INTERRUPT_EMULATOR_EXIT)
+      {
+        return;
+      }
+      else /* must be 2 */
+      {
+        /* a kludge to let us do a reset */
+        interrupted = 0;
+        a = f = b = c = d = e = h = l = a1 = f1 = b1 = c1 = d1 = e1 = h1 = l1 = i = iff1 = iff2 = im = r = 0;
+        ixoriy = new_ixoriy = 0;
+        ix = iy = sp = pc = 0;
+        tstates = radjust = 0;
+        RasterX = 0;
+        RasterY = 0;
+        dest = disp.offset + (adjustStartY * disp.stride_bit) + adjustStartX;
+        psync = 1;
+        sync_len = 0;
+
+        /* ULA */
+        NMI_generator = 0;
+        int_pending = 0;
+        hsync_pending = 0;
+        VSYNC_state = HSYNC_state = 0;
+      }
+    }
+  }
+}
+
+void zx80_loop(void)
+{
+  bool videodata;
+  unsigned long ts;
+  unsigned long tstore;
+  unsigned char v = 0;
+  unsigned char colour;
+
+  while (1)
+  {
+#if 0
+    /* Currently this is for development but it would be useful to
+     * make it a feature temp temp
+     * ZX80 load hook @ 0206:    ed fc|c3 83 02 =          LOAD|JP 0283
+     * ZX81 load hook @ 0347: eb|ed fc|c3 07 02 = EX DE,HL|LOAD|JP 0207 */
+    if ((zx80 && pc == 0x283) || (!zx80 && pc == 0x207))
+    {
+      if (!zx80)
+      {
+        printf("ZX81 System Variables\n");
+        printf("mem[0x%04x] = 0x%02x; /* ERR_NR */\n", 0x4000, mem[0x4000]);
+        printf("mem[0x%04x] = 0x%02x; /* FLAGS */\n", 0x4001, mem[0x4001]);
+        printf("mem[0x%04x] = 0x%02x; /* ERR_SP lo */\n", 0x4002, mem[0x4002]);
+        printf("mem[0x%04x] = 0x%02x; /* ERR_SP hi */\n", 0x4003, mem[0x4003]);
+        printf("mem[0x%04x] = 0x%02x; /* RAMTOP lo */\n", 0x4004, mem[0x4004]);
+        printf("mem[0x%04x] = 0x%02x; /* RAMTOP hi */\n", 0x4005, mem[0x4005]);
+        printf("mem[0x%04x] = 0x%02x; /* MODE */\n", 0x4006, mem[0x4006]);
+        printf("mem[0x%04x] = 0x%02x; /* PPC lo */\n", 0x4007, mem[0x4007]);
+        printf("mem[0x%04x] = 0x%02x; /* PPC hi */\n", 0x4008, mem[0x4008]);
+      }
+      printf("Registers\n");
+      printf("a = 0x%02x; f = 0x%02x; b = 0x%02x; c = 0x%02x;\n", a, f, b, c);
+      printf("d = 0x%02x; e = 0x%02x; h = 0x%02x; l = 0x%02x;\n", d, e, h, l);
+      printf("sp = 0x%04x; pc = 0x%04x;\n", sp, pc);
+      printf("ix = 0x%04x; iy = 0x%04x; i = 0x%02x; r = 0x%02x;\n", ix, iy, i, r);
+      printf("a1 = 0x%02x; f1 = 0x%02x; b1 = 0x%02x; c1 = 0x%02x;\n", a1, f1, b1, c1);
+      printf("d1 = 0x%02x; e1 = 0x%02x; h1 = 0x%02x; l1 = 0x%02x;\n", d1, e1, h1, l1);
+      printf("iff1 = 0x%02x; iff2 = 0x%02x; im = 0x%02x;\n", iff1, iff2, im);
+      printf("radjust = 0x%02x;\n", radjust);
+      printf("Machine/GOSUB Stack\n");
+      printf("mem[0x%04x] = 0x%02x;\n", sp + 0, mem[sp + 0]);
+      printf("mem[0x%04x] = 0x%02x;\n", sp + 1, mem[sp + 1]);
+      printf("mem[0x%04x] = 0x%02x;\n", sp + 2, mem[sp + 2]);
+      printf("mem[0x%04x] = 0x%02x;\n", sp + 3, mem[sp + 3]);
+      printf("\n");
+    }
+#endif
+    v = 0;
+    ts = 0;
+    LastInstruction = LASTINSTNONE;
+    colour = (bordercolour << 4) + bordercolour;
+
+    if (intsample && !((radjust - 1) & 64) && iff1)
+      int_pending = 1;
+
+    if (int_pending)
+    {
+      ts = z80_interrupt();
+      hsync_counter = -2;             /* INT ACK after two tstates */
+      hsync_pending = 1;              /* a HSYNC may be started */
+    }
+    else
+    {
+      // Get the next op, calculate the next byte to display and execute the op
+      op = fetchm(pc);
+
+      if (m1not && pc<0xC000)
+      {
+        videodata = false;
+      }
+      else
+      {
+        videodata = (pc&0x8000) ? true: false;
+      }
+
+      if(videodata && !(op&64))
+      {
+        v=0xff;
+
+        if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
+        {
+          int addr;
+          if (chr128 && i>0x20 && i&1)
+            addr = ((i&0xfe)<<8)|((((op&128)>>1)|(op&63))<<3)|rowcounter;
+          else
+            addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
+
+          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
+          {
+            v = mem[addr + ((op&128) ? 0x6800 : 0x6600)];
+          }
+          else
+          {
+            v = mem[addr];
+          }
+        }
+        else
+        {
+          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
+          if (useWRX)
+          {
+            v = mem[addr];
+          }
+        }
+        v = (op&128)?~v:v;
+
+        if (chromamode)
+        {
+            if (chromamode & 0x10)
+                colour = fetch(pc);
+            else
+                colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+        }
+        op=0; /* the CPU sees a nop */
+      }
+      else
+      {
+        if (pc == rom_patches.load.start) // load
+        {
+          int run_rom = sdl_load_file(hl, LOAD_FILE_METHOD_SELECTLOAD);
+          if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
+          {
+            pc = rom_patches.load.retAddr;
+            op = fetchm(pc);
+          }
+        }
+        else if (pc == rom_patches.save.start) // save
+        {
+          int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_UNNAMEDSAVE);
+          if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
+          {
+            pc = rom_patches.save.retAddr;
+            op = fetchm(pc);
+          }
+        }
+      }
+      tstore = tstates;
+
+      do
+      {
+        pc++;
+        radjust++;
+        intsample = 1;
+
+        switch (op)
+        {
+#include "z80ops.c"
+        }
+        ixoriy = 0;
+
+        // Complete ix and iy instructions
+        if (new_ixoriy)
+        {
+          ixoriy = new_ixoriy;
+          new_ixoriy = 0;
+          op = fetchm(pc);
+        }
+      } while (ixoriy);
+
+      ts = tstates - tstore;
+      tstates = tstore;
+    }
+
+    nmi_pending = int_pending = 0;
+    tstates += ts;
+
+    switch (LastInstruction)
+    {
+      case LASTINSTOUTFD:
+        anyout();
+      break;
+      case LASTINSTOUTFE:
+        anyout();
+      break;
+      case LASTINSTINFE:
+        if (VSYNC_state == 0)
+        {
+          VSYNC_state = 1;
+          vsync_raise();
+        }
+#ifdef OSS_SOUND_SUPPORT
+        if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+        {
+            sound_beeper(1);
+        }
+#endif
+
+      break;
+      case LASTINSTOUTFF:
+        anyout();
+        hsync_pending = 1;
+      break;
+    }
+
+    // Plot data in shift register
+    // Note subtract 6 as this leaves the smallest positive number
+    // of bits to carry to next byte (2)
+    if ((v || chromamode) &&
+        (RasterX >= (disp.start_x - adjustStartX - 6)) &&
+        (RasterX < (disp.end_x - adjustStartX)) &&
+        (RasterY >= (disp.start_y - adjustStartY)) &&
+        (RasterY < (disp.end_y - adjustStartY)))
+    {
+      if (chromamode)
+      {
+        int k = (dest + RasterX) >> 3;
+        scrnbmpc_new[k] = colour;
+        scrnbmp_new[k] = v;
+      }
+      else
+      {
+        if (v)
+        {
+          int k = dest + RasterX;
+          int kh = k >> 3;
+          int kl = k & 7;
+
+          if (kl)
+          {
+            scrnbmp_new[kh++] |= (v >> kl);
+            scrnbmp_new[kh] = (v << (8 - kl));
+          }
+          else
+          {
+            scrnbmp_new[kh] = v;
+          }
+        }
+      }
+    }
+
+    int tstate_inc;
+    int states_remaining = ts;
+    int since_hstart = 0;
+
+    do
+    {
+      tstate_inc = states_remaining > MAX_JMP ? MAX_JMP : states_remaining;
+      states_remaining -= tstate_inc;
+
+      hsync_counter += tstate_inc;
+      RasterX += (tstate_inc << 1);
+
+      if (hsync_counter >= HLEN)
+      {
+        hsync_counter -= HLEN;
+      }
+
+      // Start of HSYNC
+      if (hsync_pending && hsync_counter >= HSYNC_START)
+      {
+        HSYNC_state = 1;
+        hsync_pending = 0;
+        since_hstart = hsync_counter - HSYNC_START + 1;
+
+        if (VSYNC_state || rowcounter_hold)
+        {
+          rowcounter = 0;
+          rowcounter_hold = false;
+        }
+        else
+        {
+          rowcounter++;
+          rowcounter &= 7;
+        }
+      }
+
+      // end of HSYNC
+      if (HSYNC_state && hsync_counter >= HSYNC_END)
       {
         if (VSYNC_state == 2)
         {

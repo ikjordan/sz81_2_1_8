@@ -72,7 +72,7 @@ extern Display_T disp;
 typedef struct
 {
     uint16_t start;
-    uint16_t ret;
+    uint16_t retAddr;
     bool use_rom;
 } RomPatch_T;
 

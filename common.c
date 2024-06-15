@@ -290,10 +290,10 @@ RomPatches_T rom_patches;
 void zx81hacks()
 {
   rom_patches.save.start = 0x2fc;
-  rom_patches.save.ret = 0x207;
+  rom_patches.save.retAddr = 0x207;
   rom_patches.save.use_rom = true;
   rom_patches.load.start = 0x347;
-  rom_patches.load.ret = 0x207;
+  rom_patches.load.retAddr = 0x207;
   rom_patches.load.use_rom = true;
   rom_patches.in.val1 = 0x353;
   rom_patches.in.val2 = 0x38C;
@@ -303,10 +303,10 @@ void zx81hacks()
 void zx80hacks()
 {
   rom_patches.save.start = 0x1b6;
-  rom_patches.save.ret = 0x283;
+  rom_patches.save.retAddr = 0x283;
   rom_patches.save.use_rom = romSave;
   rom_patches.load.start = 0x206;
-  rom_patches.load.ret = 0x283;
+  rom_patches.load.retAddr = 0x283;
   rom_patches.load.use_rom = romLoad;
   rom_patches.in.val1 = 0x225;
   rom_patches.in.val2 = 0x233;

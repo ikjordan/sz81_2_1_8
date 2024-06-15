@@ -1031,6 +1031,7 @@ instr(0xca,10);
 endinstr;
 
 instr(0xcb,4);
+m1cycles++;
 #include "cbops.c"
 endinstr;
 
@@ -1122,6 +1123,7 @@ instr(0xdc,10);
 endinstr;
 
 instr(0xdd,4);
+   m1cycles++;
    new_ixoriy=1;
    //intsample=0;
 endinstr;
@@ -1215,6 +1217,7 @@ instr(0xec,10);
 endinstr;
 
 instr(0xed,4);
+m1cycles++;
 #include"edops.c"
 endinstr;
 

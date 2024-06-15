@@ -127,7 +127,7 @@ int refresh_screen=1;
 
 /* > 0 if emulating ZX80 hardware rather than ZX81 */
 int zx80=0;
-int rom4k=0;
+int rom4k=1;
 
 int ignore_esc=0;
 
@@ -292,10 +292,10 @@ void rom8kAddresses()
 {
   rom_patches.save.start = 0x2fc;
   rom_patches.save.retAddr = 0x207;
-  rom_patches.save.use_rom = true;
+  rom_patches.save.use_rom = romSave;
   rom_patches.load.start = 0x347;
   rom_patches.load.retAddr = 0x207;
-  rom_patches.load.use_rom = true;
+  rom_patches.load.use_rom = romLoad;
   rom_patches.in.val1 = 0x353;
   rom_patches.in.val2 = 0x38C;
   rom_patches.in.val3 = 0x0;

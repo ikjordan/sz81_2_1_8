@@ -157,6 +157,24 @@ static void vsync_raise(void)
   /* save current pos - in screen coords*/
   vsx = RasterX - (disp.start_x - adjustStartX);
   vsy = RasterY - (disp.start_y - adjustStartY);
+
+  // move to next valid pixel
+  if (vsx >= disp.width)
+  {
+      vsx = 0;
+      vsy++;
+  }
+  else if (vsx < 0)
+  {
+    vsx = 0;
+  }
+
+  if ((vsy < 0) || (vsy >= disp.height))
+  {
+    vsx = 0;
+    vsy = 0;
+  }
+
   if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastRaiseX))
   {
     frameNotSync = true;
@@ -172,78 +190,63 @@ static void vsync_lower(void)
   int ny = RasterY - (disp.start_y - adjustStartY);
   int nx = RasterX - (disp.start_x - adjustStartX);
 
+  // Move to the next valid pixel
+  if (nx >= disp.width)
+  {
+      nx = 0;
+      ny++;
+  }
+  else if (nx < 0)
+  {
+    nx = 0;
+  }
+
+  if ((ny < 0) || (ny >= disp.height))
+  {
+    nx = 0;
+    ny = 0;
+  }
+
   if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastLowerX))
   {
     frameNotSync = true;
     lastLowerX = RasterX;
   }
 
-  // Can ignore if nx: ny pair larger than vsx: vsy pair and both all off screen
-  if (((ny > vsy) || ((ny == vsy) && (nx >= vsx))) &&
-      (((ny < 0) && (vsy < 0)) || ((ny >= disp.height) && (vsy >= disp.height))))
-    return;
+  // leave if start and end are same pixel
+  if ((nx == vsx) && (ny == vsy)) return;
 
-  // Something to display, so fit in display size
-  if (vsy < 0)
-  {
-    vsy = 0;
-    vsx = 0;
-  }
-  else if (vsy >= disp.height)
-  {
-    vsy = disp.height - 1;
-    vsx = disp.width - 1;
-  }
-
-  if (ny < 0)
-  {
-    ny = 0;
-    nx = 0;
-  }
-  else if (ny >= disp.height)
-  {
-    ny = disp.height - 1;
-    nx = disp.width - 1;
-  }
-
-  if (vsx < 0)
-    vsx = 0;
-  else if (vsx >= disp.width)
-    vsx = disp.width - 1;
-
-  if (nx < 0)
-    nx = 0;
-  else if (nx >= disp.width)
-    nx = disp.width - 1;
-
+  // Determine if there is a frame wrap
   if((ny < vsy) || ((ny == vsy) && (nx < vsx)))
   {
-    /* must be wrapping around a frame edge; do bottom half */
-    uint8_t* start = scrnbmp_new+vsy*disp.stride_byte+(vsx>>3);
+    // wrapping around frame, so display bottom
+    uint8_t* start = scrnbmp_new+vsy*disp.stride_byte+(vsx>>3)-1;
     *start++ = (0xff >> (vsx & 0x7));
-    memset(start, 0xff, disp.stride_byte*(disp.height-vsy)-(vsx>>3) -1);
-    vsy=0;
-    vsx=0;
+    memset(start, 0xff, disp.stride_byte*(disp.height-vsy)-(vsx>>3)-1);
+
+    // check for case where wrap ends at bottom
+    if ((nx == 0) && (ny == 0)) return;
+
+    // Fall through to display top half
+    vsx = 0;
+    vsy = 0;
   }
 
-  uint8_t* start = scrnbmp_new+vsy*disp.stride_byte+(vsx>>3);
+  uint8_t* start = scrnbmp_new+vsy*disp.stride_byte+(vsx>>3)-1;
   uint8_t* end = scrnbmp_new+ny*disp.stride_byte+(nx>>3);
+  *start++ = (0xff >> (vsx & 0x7));
 
+  // end bits?
+  if (nx & 0x7)
+  {
+    *end = (0xff << (nx & 0x7));
+  }
+
+  // Note: End equalling start is not unusual after adjusting positions to be on screen
+  // espcially when displaying the loading screen
   if (end > start)
   {
-    *start++ = (0xff >> (vsx & 0x7));
-    // end bits?
-    if (nx & 0x7)
-    {
-      *end = (0xff << (nx & 0x7));
-    }
-
-    if (end > start)
-      memset(start, 0xff, end-start);
-  }
-  else
-  {
-    *start = (0xff >> (vsx & 0x7)) & (0xff << (nx & 0x7));
+    memset(start, 0xff, end-start);
   }
 }
 

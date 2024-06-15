@@ -125,8 +125,9 @@ int load_selector_state = 0;
 
 int refresh_screen=1;
 
-/* =1 if emulating ZX80 rather than ZX81 */
+/* > 0 if emulating ZX80 hardware rather than ZX81 */
 int zx80=0;
+int rom4k=0;
 
 int ignore_esc=0;
 
@@ -246,7 +247,7 @@ void loadrom(void)
 #ifdef SZ81	/* Added by Thunor */
 /* sz81 has already preloaded the ROMs so now this function
  * is simply copying the data into the ROM area afresh */
-if(zx80)
+if(rom4k)
   {
   memcpy(mem,sdl_zx80rom.data,4096);
   }
@@ -287,7 +288,7 @@ else
 
 RomPatches_T rom_patches;
 
-void zx81hacks()
+void rom8kAddresses()
 {
   rom_patches.save.start = 0x2fc;
   rom_patches.save.retAddr = 0x207;
@@ -300,7 +301,7 @@ void zx81hacks()
   rom_patches.in.val3 = 0x0;
 }
 
-void zx80hacks()
+void rom4kAddresses()
 {
   rom_patches.save.start = 0x1b6;
   rom_patches.save.retAddr = 0x283;
@@ -403,7 +404,7 @@ int gap = 0;  // For 3K total RAM
 
 loadrom();
 #ifdef SZ81	/* Added by Thunor */
-if(zx80)
+if(rom4k)
   {
   memset(mem+0x1000,0,0xf000);
   }
@@ -422,7 +423,7 @@ for(f=0;f<16;f++)
   memattr[f]=memattr[32+f]=0;
   memptr[f]=memptr[32+f]=mem+1024*count;
   count++;
-  if(count>=(zx80?4:8)) count=0;
+  if(count>=(rom4k?4:8)) count=0;
   }
 
 /* RAM setup */
@@ -534,10 +535,10 @@ switch(ramsize)
   UDGEnabled = false;
 #endif
 
-if(zx80)
-  zx80hacks();
+if(rom4k)
+  rom4kAddresses();
 else
-  zx81hacks();
+  rom8kAddresses();
 }
 
 

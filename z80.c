@@ -293,6 +293,8 @@ void mainloop()
       framewait = 1;
   }
 
+  if (zx80 && !rom4k) zx80 = 2;
+
   zx80 ? zx80_loop() : zx81_loop();
 }
 
@@ -770,7 +772,15 @@ void zx80_loop(void)
       {
         if (pc == rom_patches.load.start) // load
         {
-          int run_rom = sdl_load_file(hl, LOAD_FILE_METHOD_SELECTLOAD);
+          int run_rom;
+          if(!rom4k && de < 0x8000)
+          {
+            run_rom = sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
+          }
+          else /* if((!rom4k && de >= 0x8000) || rom4k) */
+          {
+            run_rom = sdl_load_file(rom4k ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
+          }
           if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
           {
             pc = rom_patches.load.retAddr;
@@ -779,12 +789,12 @@ void zx80_loop(void)
         }
         else if (pc == rom_patches.save.start) // save
         {
-          int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_UNNAMEDSAVE);
+          int run_rom = sdl_save_file(hl, rom4k ? SAVE_FILE_METHOD_UNNAMEDSAVE : SAVE_FILE_METHOD_NAMEDSAVE);
           if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
           {
             pc = rom_patches.save.retAddr;
             op = fetchm(pc);
-          }
+          }      
         }
       }
       tstore = tstates;
@@ -819,12 +829,6 @@ void zx80_loop(void)
 
     switch (LastInstruction)
     {
-      case LASTINSTOUTFD:
-        anyout();
-      break;
-      case LASTINSTOUTFE:
-        anyout();
-      break;
       case LASTINSTINFE:
         if (VSYNC_state == 0)
         {
@@ -1146,9 +1150,9 @@ unsigned int in(int h, int l)
 #ifdef DEBUG_CHROMA
       fprintf(stderr, "Insufficient RAM Size for Chroma!\n");
 #endif
-      return zx80 ? 0x40 : 0xFF;
+      return rom4k ? 0x40 : 0xFF;
     }
-    return zx80 ? 0x02 : 0x02; /* Chroma available */
+    return rom4k ? 0x02 : 0x02; /* Chroma available */
   }
 
   if (!(l & 1))

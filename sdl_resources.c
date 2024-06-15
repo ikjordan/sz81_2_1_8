@@ -289,6 +289,8 @@ void sdl_rcfile_read(void) {
 					read_emulator_model = MODEL_ZX81;
 				} else if (strcmp(value, "MODEL_ZX80") == 0) {
 					read_emulator_model = MODEL_ZX80;
+				} else if (strcmp(value, "MODEL_ZX80_8K") == 0) {
+					read_emulator_model = MODEL_ZX80_8K;
 				}
 			}
 			strcpy(key, "emulator.ramsize=");
@@ -753,6 +755,8 @@ void rcfile_write(void) {
 		strcat(value, "MODEL_ZX80");
 	} else if (*sdl_emulator.model == MODEL_ZX81) {
 		strcat(value, "MODEL_ZX81");
+	} else if (*sdl_emulator.model == MODEL_ZX80_8K) {
+		strcat(value, "MODEL_ZX80_8K");
 	}
 	fprintf(fp, "%s=%s\n", key, value);
 

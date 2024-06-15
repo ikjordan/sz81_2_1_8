@@ -120,6 +120,7 @@ extern int fakedispx,fakedispy;
 
 extern int refresh_screen;
 extern int zx80;
+extern int rom4k;
 extern int ignore_esc;
 
 /* Variables set from SDL menus */

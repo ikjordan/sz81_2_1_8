@@ -93,21 +93,6 @@ static int LastInstruction;
 #define HMIN    8
 #define HMAX    32
 
-#define ZX80_HTOL 405
-#define ZX80_VTOLMIN 290
-#define ZX80_VTOLMAX 360
-#define ZX80_HMIN 10
-#define ZX80_VMIN 350
-
-#define TVH 500
-
-const int ZX80_HSYNC_TOLLERANCE=ZX80_HTOL;
-const int ZX80_VSYNC_TOLLERANCEMIN=210;
-const int ZX80_VSYNC_TOLLERANCEMAX=410;
-const int ZX80_HSYNC_MINLEN=ZX80_HMIN;
-const int ZX80_VSYNC_MINLEN=ZX80_VMIN;
-const int VSYNC_TOLERANCEMAX_QS = 410;
-
 static const int HSYNC_TOLERANCEMIN = HSCAN - HTOL;
 static const int HSYNC_TOLERANCEMAX = HSCAN + HTOL;
 
@@ -144,6 +129,7 @@ static int videoFlipFlop3Q;
 static int videoFlipFlop3Clear;
 static int prevVideoFlipFlop3Q;
 
+static unsigned long execute_op(void);
 static inline void checkhsync(int tolchk);
 static inline void checkvsync(int tolchk);
 static inline void checksync(int inc);
@@ -329,7 +315,6 @@ void zx81_loop(void)
 {
   bool videodata;
   unsigned long ts;
-  unsigned long tstore;
   unsigned char v = 0;
   unsigned char colour;
 
@@ -465,31 +450,7 @@ void zx81_loop(void)
           }
         }
       }
-      tstore = tstates;
-
-      do
-      {
-        pc++;
-        radjust++;
-        intsample = 1;
-
-        switch (op)
-        {
-#include "z80ops.c"
-        }
-        ixoriy = 0;
-
-        // Complete ix and iy instructions
-        if (new_ixoriy)
-        {
-          ixoriy = new_ixoriy;
-          new_ixoriy = 0;
-          op = fetchm(pc);
-        }
-      } while (ixoriy);
-
-      ts = tstates - tstore;
-      tstates = tstore;
+      ts = execute_op();
     }
 
     nmi_pending = int_pending = 0;
@@ -703,7 +664,6 @@ void zx80_loop(void)
 {
   bool videodata;
   unsigned long ts;
-  unsigned long tstore;
   bool frameSynchronised = false;
   bool vsyncFound = false;
   int scanlineCounter = 0;
@@ -723,7 +683,6 @@ void zx80_loop(void)
   int sync_type = SYNCNONE;
   int sync_len = 0;
 
-  dest = disp.offset + (disp.stride_bit * adjustStartY) + adjustStartX;
   S_RasterX = 0;
   S_RasterY = 0;
 
@@ -734,25 +693,25 @@ void zx80_loop(void)
     RasterY = S_RasterY;
     dest = disp.offset + (disp.stride_bit * (adjustStartY + RasterY)) + adjustStartX;
 
-    // Handle line carry over here
-    scanline_len = 0;
-
     if (sync_type != SYNCNONE)
     {
       sync_type = SYNCNONE;
       sync_len = 0;
     }
 
+    // Handle line carry over here
     if (lineClockCarryCounter > 0)
     {
-      int lineClockCarryCounterPixels = lineClockCarryCounter * 2;
-      //memcpy(CurScanLine->scanline, carryOverScanlineBuffer, lineClockCarryCounterPixels);
-      scanline_len = lineClockCarryCounterPixels;
+      scanline_len = lineClockCarryCounter << 1;
       RasterX += scanline_len;
       lineClockCarryCounter = 0;
     }
+    else
+    {
+      scanline_len = 0;
+    }
 
-    do // instruction loop
+    do // instructions within a scanline
     {
       v = 0;
       ts = 0;
@@ -840,33 +799,8 @@ void zx80_loop(void)
           }
         }
       }
-      tstore = tstates;
-
       // execute the operation
-      do
-      {
-        pc++;
-        radjust++;
-        intsample = 1;
-        m1cycles=1;
-
-        switch (op)
-        {
-#include "z80ops.c"
-        }
-        ixoriy = 0;
-
-        // Complete ix and iy instructions
-        if (new_ixoriy)
-        {
-          ixoriy = new_ixoriy;
-          new_ixoriy = 0;
-          op = fetchm(pc);
-        }
-      } while (ixoriy);
-
-      ts = tstates - tstore;
-      tstates = tstore;
+      ts = execute_op();
 
       // Update the flip flop
       prevVideoFlipFlop3Q = videoFlipFlop3Q;
@@ -891,7 +825,6 @@ void zx80_loop(void)
         }
       }
 
-      //if (!((radjust) & 64)) int_pending = 1;
       if (intsample && !((radjust - 1) & 64) && iff1)
         int_pending = 1;
 
@@ -961,8 +894,6 @@ void zx80_loop(void)
         RasterX -= scanlinePixelLength;
       }
 
-      //if (!((radjust) & 64)) int_pending = 1;
-      //if (!(r & 0x40)) int_pending = 1;
       tstates += ts;
 
       switch (LastInstruction)
@@ -1035,41 +966,23 @@ void zx80_loop(void)
           {
             if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
             {
-              //memset(scanline + CurScanLine->scanline_len, 0xFF, -overhangPixels);
-
               lineClockCarryCounter = 0;
               scanline_len = scanlinePixelLength;
             }
             else
             {
-              //memcpy(carryOverScanlineBuffer, scanline, CurScanLine->scanline_len);
-              //memset(scanline, BLANKCOLOUR, scanlinePixelLength);
-
               lineClockCarryCounter = scanline_len / 2;
               scanline_len = scanlinePixelLength;
-
-              //scanlinesPerFrame--;
             }
           }
           else if (overhangPixels > 0)
           {
-            //memcpy(carryOverScanlineBuffer, CurScanLine->scanline + scanlinePixelLength, overhangPixels);
-
             lineClockCarryCounter = overhangPixels / 2;
             scanline_len = scanlinePixelLength;
           }
         }
         else if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
         {
-          int actualScanlineLength = scanline_len - ts;
-          //memcpy(carryOverScanlineBuffer, CurScanLine->scanline + actualScanlineLength, instructionPixels);
-
-          int pixelsToBlank = (scanlinePixelLength - actualScanlineLength);
-          if (pixelsToBlank > 0)
-          {
-            //memset(scanline + actualScanlineLength, BLANKCOLOUR, pixelsToBlank);
-          }
-
           lineClockCarryCounter = ts;
           scanline_len = scanlinePixelLength;
         }
@@ -1088,8 +1001,6 @@ void zx80_loop(void)
         */
       if (interrupted)
       {
-        //restart = true;
-
         if (interrupted == 1)
         {
           do_interrupt(); /* also zeroes it */
@@ -1140,13 +1051,13 @@ void zx80_loop(void)
     {
       if (vsyncFound)
       {
-        frameSynchronised = (RasterY >= ZX80_VSYNC_TOLLERANCEMIN) && (RasterY <= VSYNC_TOLERANCEMAX_QS) &&
-                            (scanlineCounter >= ZX80_VSYNC_TOLLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX_QS);
+        frameSynchronised = (RasterY >= VSYNC_TOLERANCEMIN) && (RasterY <= VSYNC_TOLERANCEMAX) &&
+                            (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
         vsyncFound = frameSynchronised;
       }
       else
       {
-        vsyncFound = (scanlineCounter >= ZX80_VSYNC_TOLLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX_QS);
+        vsyncFound = (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
       }
       scanlineCounter = 0;
 
@@ -1161,7 +1072,7 @@ void zx80_loop(void)
     }
     else
     {
-      if (scanlineCounter < VSYNC_TOLERANCEMAX_QS)
+      if (scanlineCounter < VSYNC_TOLERANCEMAX)
       {
         if (sync_type == SYNCTYPEH)
         {
@@ -1169,7 +1080,7 @@ void zx80_loop(void)
         }
       }
 
-      if (((sync_type == SYNCNONE) && videoFlipFlop3Q) || (scanlineCounter == VSYNC_TOLERANCEMAX_QS))
+      if (((sync_type == SYNCNONE) && videoFlipFlop3Q) || (scanlineCounter == VSYNC_TOLERANCEMAX))
       {
               frameSynchronised = false;
               vsyncFound = false;
@@ -1181,27 +1092,29 @@ void zx80_loop(void)
         int overhangPixels = scanline_len - scanlinePixelLength;
         if (overhangPixels > 0)
         {
-          // memcpy(carryOverScanlineBuffer, CurScanLine->scanline + scanlinePixelLength, overhangPixels);
-
-          lineClockCarryCounter = overhangPixels / 2;
+          lineClockCarryCounter = (overhangPixels >> 1);
           scanline_len = scanlinePixelLength;
         }
       }
     }
 
     // Synchronise the TV position
+    bool noSync = false;
     S_RasterX += scanline_len;
     if (S_RasterX >= scanlinePixelLength)
     {
       S_RasterX -= scanlinePixelLength;
       S_RasterY++;
 
-      if (S_RasterY >= TVH)
+      if (S_RasterY >= VSYNC_TOLERANCEMAX)
       {
         S_RasterX = 0;
         sync_type=SYNCTYPEV;
         if (sync_len < HSYNC_MINLEN)
+        {
           sync_len=HSYNC_MINLEN;
+          noSync = true;
+        }
       }
     }
 
@@ -1209,18 +1122,28 @@ void zx80_loop(void)
 
     if (sync_type)
     {
-      if (S_RasterX > ZX80_HSYNC_TOLLERANCE)
+      if (S_RasterX > HSYNC_TOLERANCEMAX)
       {
         S_RasterX=0;
         S_RasterY++;
       }
 
-      if (S_RasterY>=TVH || S_RasterY>=ZX80_VSYNC_TOLLERANCEMAX ||
-          (sync_len>VSYNC_MINLEN && S_RasterY>ZX80_VSYNC_TOLLERANCEMIN))
+      if (S_RasterY>=VSYNC_TOLERANCEMAX ||
+          (sync_len>VSYNC_MINLEN && S_RasterY>VSYNC_TOLERANCEMIN))
       {
+        if (noSync)
+        {
+          // Blank the display
+          memset(scrnbmp, 0xff, disp.length);
+          if (chromamode) memset(scrnbmpc, 0x0, disp.length);
+        }
+        else
+        {
+          memcpy(scrnbmp, scrnbmp_new, disp.length);
+          if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
+        }
+
         // Display the frame
-        memcpy(scrnbmp, scrnbmp_new, disp.length);
-        if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
         memset(scrnbmp_new, 0x00, disp.length);
         if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
         if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
@@ -1230,6 +1153,37 @@ void zx80_loop(void)
       }
     }
   }
+}
+
+static unsigned long execute_op(void)
+{
+  unsigned long states;
+  unsigned long  tstore = tstates;
+  do
+  {
+    pc++;
+    radjust++;
+    intsample = 1;
+    m1cycles=1;
+
+    switch (op)
+    {
+#include "z80ops.c"
+    }
+    ixoriy = 0;
+
+    // Complete ix and iy instructions
+    if (new_ixoriy)
+    {
+      ixoriy = new_ixoriy;
+      new_ixoriy = 0;
+      op = fetchm(pc);
+    }
+  } while (ixoriy);
+
+  states = tstates - tstore;
+  tstates = tstore;
+  return states;
 }
 
 void z80_reset(void)

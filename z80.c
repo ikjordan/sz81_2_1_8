@@ -1423,6 +1423,12 @@ unsigned int out(int h, int l, int a)
       adjustChroma(false);
     }
     LastInstruction = LASTINSTOUTFF;
+#ifdef OSS_SOUND_SUPPORT
+    if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+    {
+      sound_beeper(0);
+    }
+#endif
     return 0;
   }
 

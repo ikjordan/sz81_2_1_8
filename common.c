@@ -247,7 +247,7 @@ void loadrom(void)
 #ifdef SZ81	/* Added by Thunor */
 /* sz81 has already preloaded the ROMs so now this function
  * is simply copying the data into the ROM area afresh */
-if(rom4k)
+if(rom4k && zx80)
   {
   memcpy(mem,sdl_zx80rom.data,4096);
   }
@@ -323,44 +323,48 @@ void initdisplay(void)
   {
     disp.width = DISPLAY_F_WIDTH;
     disp.height = DISPLAY_F_HEIGHT;
-    disp.stride_bit = (DISPLAY_F_PADDING << 3) + DISPLAY_F_WIDTH;
     disp.start_x = DISPLAY_F_START_X;
     disp.start_y = DISPLAY_F_START_Y;
     disp.adjust_x = DISPLAY_F_PIXEL_OFF;
-    disp.padding = DISPLAY_F_PADDING;
   }
   else if (fiveSevenSix)
   {
     disp.width = DISPLAY_P_WIDTH;
     disp.height = DISPLAY_P_HEIGHT;
-    disp.stride_bit = (DISPLAY_P_PADDING << 3) + DISPLAY_P_WIDTH;
     disp.start_x = DISPLAY_P_START_X;
     disp.start_y = DISPLAY_P_START_Y;
     disp.adjust_x = DISPLAY_P_PIXEL_OFF;
-    disp.padding = DISPLAY_P_PADDING;
   }
   else
   {
     disp.width = DISPLAY_N_WIDTH;
     disp.height = DISPLAY_N_HEIGHT;
-    disp.stride_bit = (DISPLAY_N_PADDING << 3) + DISPLAY_N_WIDTH;
     disp.start_x = DISPLAY_N_START_X;
     disp.start_y = DISPLAY_N_START_Y;
     disp.adjust_x = DISPLAY_N_PIXEL_OFF;
-    disp.padding = DISPLAY_N_PADDING;
-
-    if (centreScreen)
-    {
-      adjustStartX = DISPLAY_N_PIXEL_OFF;
-      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
-    }
   }
 
+  disp.padding = DISPLAY_PADDING;
+  disp.stride_bit = (disp.padding << 3) + disp.width;
   disp.stride_byte = disp.stride_bit >> 3;
   disp.length = disp.stride_byte * disp.height;
   disp.end_x = disp.start_x + disp.width;
   disp.end_y = disp.height + disp.start_y;
   disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
+}
+
+void adjustdisplay(void)
+{
+  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
+
+  if (centreScreen)
+  {
+    if (!(fullDisplay || fiveSevenSix))
+    {
+      adjustStartX = DISPLAY_N_PIXEL_OFF + (zx80 ? DISPLAY_ZX80_OFF : 0);
+      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
+    }
+  }
 }
 
 /* Ensure that chroma and pixels are byte aligned*/
@@ -386,10 +390,7 @@ void adjustChroma(bool start)
   }
   else
   {
-    if (!centreScreen)
-    {
-      adjustStartX = 0;
-    }
+    adjustdisplay();
   }
 }
 
@@ -402,9 +403,15 @@ int ramsize;
 int count;
 int gap = 0;  // For 3K total RAM
 
+// Correct ROM id necessary
+if (zx80)
+{
+  zx80 = (rom4k) ? 1 : 2;
+}
+
 loadrom();
 #ifdef SZ81	/* Added by Thunor */
-if(rom4k)
+if(rom4k && zx80)
   {
   memset(mem+0x1000,0,0xf000);
   }
@@ -423,7 +430,7 @@ for(f=0;f<16;f++)
   memattr[f]=memattr[32+f]=0;
   memptr[f]=memptr[32+f]=mem+1024*count;
   count++;
-  if(count>=(rom4k?4:8)) count=0;
+  if(count>=((rom4k && zx80)?4:8)) count=0;
   }
 
 /* RAM setup */
@@ -535,7 +542,7 @@ switch(ramsize)
   UDGEnabled = false;
 #endif
 
-if(rom4k)
+if(rom4k && zx80)
   rom4kAddresses();
 else
   rom8kAddresses();

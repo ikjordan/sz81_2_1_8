@@ -19,10 +19,8 @@
  * common.h - prototypes etc. for common.c.
  */
 
-/* And first, some display constants, as this seems the least
- * horrible place to put them.
- *
- * NB: *everything* horizontal here must be exactly divisible by 8.
+/*
+   Display constants
  */
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,7 +31,6 @@
 #define DISPLAY_N_START_X     46
 #define DISPLAY_N_START_Y     24
 #define DISPLAY_N_PIXEL_OFF   4
-#define DISPLAY_N_PADDING     1
 
 // Size for 576 line display (as for PAL TV)
 #define DISPLAY_P_WIDTH       360
@@ -41,7 +38,6 @@
 #define DISPLAY_P_START_X     24
 #define DISPLAY_P_START_Y     0
 #define DISPLAY_P_PIXEL_OFF   4
-#define DISPLAY_P_PADDING     1
 
 // Sizes for full (debug) display
 #define DISPLAY_F_WIDTH       416
@@ -49,7 +45,12 @@
 #define DISPLAY_F_START_X     0
 #define DISPLAY_F_START_Y     0
 #define DISPLAY_F_PIXEL_OFF   6
-#define DISPLAY_F_PADDING     1
+
+// Size of Padding between lines (in Bytes)
+#define DISPLAY_PADDING       1
+
+// ZX80 ROM OFFSET
+#define DISPLAY_ZX80_OFF      6
 
 typedef struct
 {
@@ -172,6 +173,7 @@ extern void frame_pause(void);
 #ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
 extern void initdisplay(void);
+extern void adjustdisplay(void);
 extern void adjustChroma(bool start);
 #endif
 

@@ -789,6 +789,9 @@ int main(int argc, char *argv[]) {
 
 					interrupted = 0;
 
+                    /* Update display offset */
+                    adjustdisplay();
+
 					/* Initialise the printer file */
 					sdl_zxprinter_init();
 

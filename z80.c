@@ -52,18 +52,18 @@ unsigned char partable[256] = {
 unsigned long tstates = 0, tsmax = 65000, frames = 0;
 
 /* odd place to have this, but the display does work in an odd way :-) */
-static unsigned char scrnbmp_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT]; /* written */
-static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];     /* displayed */
+static unsigned char scrnbmp_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT]; /* written */
+static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];     /* displayed */
 
-static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_F_PADDING;
-unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_F_PADDING;
+static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_PADDING;
+unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_PADDING;
 
 /* chroma */
-static unsigned char scrnbmpc_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];/* written */
-static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_F_PADDING) * DISPLAY_F_HEIGHT];	  /* displayed */
+static unsigned char scrnbmpc_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];/* written */
+static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];	  /* displayed */
 
-static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_F_PADDING;
-unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_F_PADDING;
+static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_PADDING;
+unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_PADDING;
 
 int vsx = 0;
 int vsy = 0;
@@ -103,6 +103,8 @@ static const int VSYNC_MINLEN = VMIN;
 static int VSYNC_TOLERANCEMIN = SCAN50 - VTOL;
 static int VSYNC_TOLERANCEMAX = SCAN50 + VTOL;
 
+static int FRAME_SCAN = SCAN50;
+
 static const int HSYNC_START = 16;
 static const int HSYNC_END = 32;
 static const int HLEN = HLENGTH;
@@ -123,11 +125,11 @@ static int rowcounter = 0;
 static int hsync_counter = 0;
 static bool rowcounter_hold = false;
 
-static int videoFlipFlop1Q;
-static int videoFlipFlop2Q;
-static int videoFlipFlop3Q;
-static int videoFlipFlop3Clear;
-static int prevVideoFlipFlop3Q;
+static int videoFlipFlop1Q = 1;
+static int videoFlipFlop2Q = 0;
+static int videoFlipFlop3Q = 0;
+static int videoFlipFlop3Clear = 0;
+static int prevVideoFlipFlop3Q = 0;
 
 static unsigned long execute_op(void);
 static inline void checkhsync(int tolchk);
@@ -149,11 +151,13 @@ static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
   // display, both can be at either 50 or 60 Hz
   if (fiftyHz)
   {
+    FRAME_SCAN = SCAN50;
     VSYNC_TOLERANCEMIN = SCAN50 - vtol;
     VSYNC_TOLERANCEMAX = SCAN50 + vtol;
   }
   else
   {
+    FRAME_SCAN = SCAN60;
     VSYNC_TOLERANCEMIN = SCAN60 - vtol;
     VSYNC_TOLERANCEMAX = SCAN60 + vtol;
   }
@@ -306,8 +310,6 @@ void mainloop()
       framewait = 1;
   }
 
-  if (zx80 && !rom4k) zx80 = 2;
-
   zx80 ? zx80_loop() : zx81_loop();
 }
 
@@ -362,7 +364,7 @@ void zx81_loop(void)
     LastInstruction = LASTINSTNONE;
     colour = (bordercolour << 4) + bordercolour;
 
-    if (intsample && !((radjust - 1) & 64) && iff1)
+    if (intsample && !((radjust - 1) & 0x40) && iff1)
       int_pending = 1;
 
     if (nmi_pending)
@@ -660,6 +662,8 @@ const int PortActiveDurationPixels = PortActiveDuration * 2;
 const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;
 const int scanlineThresholdPixelLength = scanlinePixelLength + ZX80MaximumSupportedScanlineOverhangPixels;
 
+int nosync_lines = 0;
+
 void zx80_loop(void)
 {
   bool videodata;
@@ -673,18 +677,9 @@ void zx80_loop(void)
   bool allowSoundOutput = false;
   int lineClockCarryCounter = 0;
 
-  videoFlipFlop1Q = 1;
-  videoFlipFlop2Q = 0;
-  videoFlipFlop3Q = 0;
-  videoFlipFlop3Clear = 0;
-  prevVideoFlipFlop3Q = 0;
-
   int scanline_len = 0;
   int sync_type = SYNCNONE;
   int sync_len = 0;
-
-  S_RasterX = 0;
-  S_RasterY = 0;
 
   while (1)
   {
@@ -825,11 +820,8 @@ void zx80_loop(void)
         }
       }
 
-      if (intsample && !((radjust - 1) & 64) && iff1)
-        int_pending = 1;
-
       // execute an interrupt
-      if (int_pending)
+      if (intsample && !((radjust - 1) & 0x40) && iff1)
       {
         int ti = z80_interrupt();
 
@@ -845,7 +837,6 @@ void zx80_loop(void)
 
           ts += ti;
         }
-        int_pending = 0;
       }
 
       // Plot data in shift register
@@ -886,13 +877,6 @@ void zx80_loop(void)
 
       RasterX += (ts << 1);
       scanline_len += (ts << 1);
-
-      if (RasterX >= scanlinePixelLength)
-      {
-        RasterY++;
-        dest += disp.stride_bit;
-        RasterX -= scanlinePixelLength;
-      }
 
       tstates += ts;
 
@@ -1022,16 +1006,8 @@ void zx80_loop(void)
           tstates = radjust = 0;
           S_RasterX = 0;
           S_RasterY = 0;
-          dest = disp.offset + (adjustStartY * disp.stride_bit) + adjustStartX;
-          psync = 1;
-          sync_len = 0;
 
-          /* ULA */
-          NMI_generator = 0;
-          int_pending = 0;
-          hsync_pending = 0;
-          VSYNC_state = HSYNC_state = 0;
-
+          /* ZX80 Hardware */
           videoFlipFlop1Q = 1;
           videoFlipFlop2Q = 0;
           videoFlipFlop3Q = 0;
@@ -1069,6 +1045,7 @@ void zx80_loop(void)
         sync_type = SYNCNONE;
         sync_len = 0;
       }
+      nosync_lines = 0;
     }
     else
     {
@@ -1095,11 +1072,15 @@ void zx80_loop(void)
           lineClockCarryCounter = (overhangPixels >> 1);
           scanline_len = scanlinePixelLength;
         }
+        nosync_lines++;
+      }
+      else
+      {
+        nosync_lines = 0;
       }
     }
 
     // Synchronise the TV position
-    bool noSync = false;
     S_RasterX += scanline_len;
     if (S_RasterX >= scanlinePixelLength)
     {
@@ -1113,7 +1094,6 @@ void zx80_loop(void)
         if (sync_len < HSYNC_MINLEN)
         {
           sync_len=HSYNC_MINLEN;
-          noSync = true;
         }
       }
     }
@@ -1131,11 +1111,12 @@ void zx80_loop(void)
       if (S_RasterY>=VSYNC_TOLERANCEMAX ||
           (sync_len>VSYNC_MINLEN && S_RasterY>VSYNC_TOLERANCEMIN))
       {
-        if (noSync)
+        if (nosync_lines >= FRAME_SCAN)
         {
-          // Blank the display
+          // Whole frame with no sync, so blank the display
           memset(scrnbmp, 0xff, disp.length);
           if (chromamode) memset(scrnbmpc, 0x0, disp.length);
+          nosync_lines -= FRAME_SCAN;
         }
         else
         {
@@ -1164,7 +1145,7 @@ static unsigned long execute_op(void)
     pc++;
     radjust++;
     intsample = 1;
-    m1cycles=1;
+    m1cycles = 1;
 
     switch (op)
     {
@@ -1349,9 +1330,9 @@ unsigned int in(int h, int l)
 #ifdef DEBUG_CHROMA
       fprintf(stderr, "Insufficient RAM Size for Chroma!\n");
 #endif
-      return rom4k ? 0x40 : 0xFF;
+      return zx80 ? 0x40 : 0xFF;
     }
-    return rom4k ? 0x02 : 0x02; /* Chroma available */
+    return zx80 ? 0x02 : 0x02; /* Chroma available */
   }
 
   if (!(l & 1))

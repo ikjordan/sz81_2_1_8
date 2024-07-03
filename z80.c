@@ -114,6 +114,14 @@ static int S_RasterX = 0;
 static int S_RasterY = 0;
 static int RasterX = 0;
 static int RasterY = 0;
+
+static int adjustStartX=0;
+static int adjustStartY=0;
+static int startX = 0;
+static int startY = 0;
+static int endX = 0;
+static int endY = 0;
+
 static bool frameNotSync = true;
 static int dest;
 
@@ -125,13 +133,7 @@ static int rowcounter = 0;
 static int hsync_counter = 0;
 static bool rowcounter_hold = false;
 
-static int videoFlipFlop1Q = 1;
-static int videoFlipFlop2Q = 0;
-static int videoFlipFlop3Q = 0;
-static int videoFlipFlop3Clear = 0;
-static int prevVideoFlipFlop3Q = 0;
-
-static unsigned long execute_op(void);
+static unsigned long z80_op(void);
 static inline void checkhsync(int tolchk);
 static inline void checkvsync(int tolchk);
 static inline void checksync(int inc);
@@ -144,6 +146,66 @@ static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
 static void zx80_loop(void);
 static void zx81_loop(void);
 extern int printer_inout(int is_out, int val);
+static void setRemainingDisplayBoundaries(void);
+
+
+static void setRemainingDisplayBoundaries(void)
+{
+  startX = disp.start_x - adjustStartX - 6;
+  startY = disp.start_y - adjustStartY;
+  endX = disp.end_x - adjustStartX;
+  endY = disp.end_y - adjustStartY;
+}
+
+/* Ensure that chroma and pixels are byte aligned */
+void adjustChroma(bool start)
+{
+  if (start)
+  {
+    if (!adjustStartX)
+    {
+      if (fullDisplay)
+      {
+        adjustStartX = DISPLAY_F_PIXEL_OFF;
+      }
+      else if (fiveSevenSix)
+      {
+        adjustStartX = DISPLAY_P_PIXEL_OFF;
+      }
+      else
+      {
+        adjustStartX = DISPLAY_N_PIXEL_OFF;
+      }
+    }
+    setRemainingDisplayBoundaries();
+  }
+  else
+  {
+    adjustdisplay();
+  }
+}
+
+void adjustdisplay(void)
+{
+  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
+
+  if (centreScreen)
+  {
+    if (!(fullDisplay || fiveSevenSix))
+    {
+      adjustStartX = DISPLAY_N_PIXEL_OFF + (zx80 ? DISPLAY_ZX80_OFF : 0);
+      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
+    }
+  }
+  setRemainingDisplayBoundaries(); 
+}
+
+void setDisplayBoundaries(void)
+{
+  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
+
+  setRemainingDisplayBoundaries();
+}
 
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
 {
@@ -165,11 +227,9 @@ static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
 
 static void vsync_raise(void)
 {
-  static int lastRaiseX = 0;
-
   /* save current pos - in screen coords*/
   vsx = RasterX - (disp.start_x - adjustStartX);
-  vsy = RasterY - (disp.start_y - adjustStartY);
+  vsy = RasterY - startY;
 
   // move to next valid pixel
   if (vsx >= disp.width)
@@ -187,21 +247,13 @@ static void vsync_raise(void)
     vsx = 0;
     vsy = 0;
   }
-
-  if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastRaiseX))
-  {
-    frameNotSync = true;
-    lastRaiseX = RasterX;
-  }
 }
 
 /* for vsync on -> off */
 static void vsync_lower(void)
 {
-  static int lastLowerX = 0;
-
-  int ny = RasterY - (disp.start_y - adjustStartY);
   int nx = RasterX - (disp.start_x - adjustStartX);
+  int ny = RasterY - startY;
 
   // Move to the next valid pixel
   if (nx >= disp.width)
@@ -218,12 +270,6 @@ static void vsync_lower(void)
   {
     nx = 0;
     ny = 0;
-  }
-
-  if (((RasterY < VSYNC_TOLERANCEMIN) || (RasterY > VSYNC_TOLERANCEMAX)) && (RasterX != lastLowerX))
-  {
-    frameNotSync = true;
-    lastLowerX = RasterX;
   }
 
   // leave if start and end are same pixel
@@ -256,7 +302,7 @@ static void vsync_lower(void)
   }
 
   // Note: End equalling start is not unusual after adjusting positions to be on screen
-  // espcially when displaying the loading screen
+  // especially when displaying the loading screen
   if (end > start)
   {
     memset(start, 0xff, end-start);
@@ -272,6 +318,45 @@ unsigned char radjust;
 unsigned char ixoriy, new_ixoriy;
 unsigned char intsample = 0;
 unsigned char op;
+
+#define SYNCNONE        0
+#define SYNCTYPEH       1
+#define SYNCTYPEV       2
+
+static int scanlineCounter = 0;
+
+static int videoFlipFlop1Q = 1;
+static int videoFlipFlop2Q = 0;
+static int videoFlipFlop3Q = 0;
+static int videoFlipFlop3Clear = 0;
+static int prevVideoFlipFlop3Q = 0;
+
+static int lineClockCarryCounter = 0;
+
+static int scanline_len = 0;
+static int sync_type = SYNCNONE;
+static bool vsyncFound = false;
+
+#define SYNCNONE        0
+#define SYNCTYPEH       1
+#define SYNCTYPEV       2
+
+const int scanlinePixelLength = (HLENGTH << 1);
+const int ZX80HSyncDuration = 20;
+
+const int ZX80HSyncDurationPixels = ZX80HSyncDuration * 2;
+const int ZX80HSyncAcceptanceDuration = (3 * ZX80HSyncDuration) / 2;
+const int ZX80HSyncAcceptanceDurationPixels = ZX80HSyncAcceptanceDuration * 2;
+const int ZX80MaximumSupportedScanlineOverhang = ZX80HSyncDuration * 2;
+const int ZX80MaximumSupportedScanlineOverhangPixels = ZX80MaximumSupportedScanlineOverhang * 2;
+const int InterruptAcknowledgementDuration = 3; // The acknowledgement spans 3 clock cycles
+
+const int PortActiveDuration = 3;
+const int PortActiveDurationPixels = PortActiveDuration * 2;
+const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;
+const int scanlineThresholdPixelLength = scanlinePixelLength + ZX80MaximumSupportedScanlineOverhangPixels;
+
+int nosync_lines = 0;
 
 void mainloop()
 {
@@ -315,72 +400,43 @@ void mainloop()
 
 void zx81_loop(void)
 {
-  bool videodata;
   unsigned long ts;
-  unsigned char v = 0;
-  unsigned char colour;
+  unsigned char v;
+  bool videodata;
+
+  int addr;
+  int k;
+  int kh;
+  int kl;
+
+  unsigned char colour = 0;
 
   while (1)
   {
-#if 0
-    /* Currently this is for development but it would be useful to
-     * make it a feature temp temp
-     * ZX80 load hook @ 0206:    ed fc|c3 83 02 =          LOAD|JP 0283
-     * ZX81 load hook @ 0347: eb|ed fc|c3 07 02 = EX DE,HL|LOAD|JP 0207 */
-    if ((zx80 && pc == 0x283) || (!zx80 && pc == 0x207))
-    {
-      if (!zx80)
-      {
-        printf("ZX81 System Variables\n");
-        printf("mem[0x%04x] = 0x%02x; /* ERR_NR */\n", 0x4000, mem[0x4000]);
-        printf("mem[0x%04x] = 0x%02x; /* FLAGS */\n", 0x4001, mem[0x4001]);
-        printf("mem[0x%04x] = 0x%02x; /* ERR_SP lo */\n", 0x4002, mem[0x4002]);
-        printf("mem[0x%04x] = 0x%02x; /* ERR_SP hi */\n", 0x4003, mem[0x4003]);
-        printf("mem[0x%04x] = 0x%02x; /* RAMTOP lo */\n", 0x4004, mem[0x4004]);
-        printf("mem[0x%04x] = 0x%02x; /* RAMTOP hi */\n", 0x4005, mem[0x4005]);
-        printf("mem[0x%04x] = 0x%02x; /* MODE */\n", 0x4006, mem[0x4006]);
-        printf("mem[0x%04x] = 0x%02x; /* PPC lo */\n", 0x4007, mem[0x4007]);
-        printf("mem[0x%04x] = 0x%02x; /* PPC hi */\n", 0x4008, mem[0x4008]);
-      }
-      printf("Registers\n");
-      printf("a = 0x%02x; f = 0x%02x; b = 0x%02x; c = 0x%02x;\n", a, f, b, c);
-      printf("d = 0x%02x; e = 0x%02x; h = 0x%02x; l = 0x%02x;\n", d, e, h, l);
-      printf("sp = 0x%04x; pc = 0x%04x;\n", sp, pc);
-      printf("ix = 0x%04x; iy = 0x%04x; i = 0x%02x; r = 0x%02x;\n", ix, iy, i, r);
-      printf("a1 = 0x%02x; f1 = 0x%02x; b1 = 0x%02x; c1 = 0x%02x;\n", a1, f1, b1, c1);
-      printf("d1 = 0x%02x; e1 = 0x%02x; h1 = 0x%02x; l1 = 0x%02x;\n", d1, e1, h1, l1);
-      printf("iff1 = 0x%02x; iff2 = 0x%02x; im = 0x%02x;\n", iff1, iff2, im);
-      printf("radjust = 0x%02x;\n", radjust);
-      printf("Machine/GOSUB Stack\n");
-      printf("mem[0x%04x] = 0x%02x;\n", sp + 0, mem[sp + 0]);
-      printf("mem[0x%04x] = 0x%02x;\n", sp + 1, mem[sp + 1]);
-      printf("mem[0x%04x] = 0x%02x;\n", sp + 2, mem[sp + 2]);
-      printf("mem[0x%04x] = 0x%02x;\n", sp + 3, mem[sp + 3]);
-      printf("\n");
-    }
-#endif
-    v = 0;
-    ts = 0;
     LastInstruction = LASTINSTNONE;
-    colour = (bordercolour << 4) + bordercolour;
 
-    if (intsample && !((radjust - 1) & 0x40) && iff1)
-      int_pending = 1;
+    if(intsample && !((radjust-1)&64) && iff1)
+      int_pending=1;
 
-    if (nmi_pending)
+    if(nmi_pending)
     {
       ts = nmi_interrupt();
+      tstates += ts;
     }
     else if (int_pending)
     {
       ts = z80_interrupt();
       hsync_counter = -2;             /* INT ACK after two tstates */
       hsync_pending = 1;              /* a HSYNC may be started */
+      tstates += ts;
     }
     else
     {
       // Get the next op, calculate the next byte to display and execute the op
       op = fetchm(pc);
+
+      intsample = 1;
+      m1cycles = 1;
 
       if (m1not && pc<0xC000)
       {
@@ -391,83 +447,99 @@ void zx81_loop(void)
         videodata = (pc&0x8000) ? true: false;
       }
 
-      if(videodata && !(op&64))
+      if(videodata && !(op & 0x40))
       {
-        v=0xff;
-
-        if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
+        if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
         {
-          int addr;
-          if (chr128 && i>0x20 && i&1)
-            addr = ((i&0xfe)<<8)|((((op&128)>>1)|(op&63))<<3)|rowcounter;
+          if (chr128 && i > 0x20 && i & 1)
+            addr = ((i & 0xfe) << 8) | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3)|rowcounter;
           else
-            addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
+            addr = ((i & 0xfe) << 8) | ((op & 0x3f) << 3) | rowcounter;
 
-          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
+          if (UDGEnabled && (addr >= 0x1E00) && (addr < 0x2000))
           {
-            v = mem[addr + ((op&128) ? 0x6800 : 0x6600)];
+            v = mem[addr + ((op & 0x80) ? 0x6800 : 0x6600)];
           }
           else
           {
             v = mem[addr];
           }
+        }
+        else if (useWRX)
+        {
+          v = mem[(i << 8) | (r & 0x80) | (radjust & 0x7f)];
         }
         else
         {
-          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
-          if (useWRX)
-          {
-            v = mem[addr];
-          }
+          v = 0xff;
         }
-        v = (op&128)?~v:v;
+        v = (op & 0x80) ? ~v : v;
 
         if (chromamode)
         {
-            if (chromamode & 0x10)
-                colour = fetch(pc);
-            else
-                colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+          colour = (chromamode & 0x10) ? fetch(pc) : fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+          chroma_set = (colour ^ fullcolour) & 0xf0;
         }
-        op=0; /* the CPU sees a nop */
+        /* The CPU sees a nop - so skip the Z80 emulation loop */
+        pc++;
+        radjust++;
+
+        ts = 4;
+        tstates += 4;
+      // Plot data in shift register
+      // Note subtract 6 as this leaves the smallest positive number
+      // of bits to carry to next byte (2)
+        if ((v || chroma_set) &&
+            (RasterX >= startX) &&
+            (RasterX < endX) &&
+            (RasterY >= startY) &&
+            (RasterY < endY))
+        {
+          if (chromamode)
+          {
+            k = (dest + RasterX) >> 3;
+            scrnbmpc_new[k] = colour;
+            scrnbmp_new[k] = v;
+            chroma_set = 0;
+          }
+          else
+          {
+            k = dest + RasterX;
+            kh = k >> 3;
+            kl = k & 7;
+
+            if (kl)
+            {
+              scrnbmp_new[kh++] |= (v >> kl);
+              scrnbmp_new[kh] = (v << (8 - kl));
+            }
+            else
+            {
+              scrnbmp_new[kh] = v;
+            }
+          }
+        }
       }
       else
       {
-        if (pc == rom_patches.load.start) // load
-        {
-          int run_rom = sdl_load_file(de, (de < 0x800) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
-          if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
-          {
-            pc = rom_patches.load.retAddr;
-            op = fetchm(pc);
-          }
-        }
-        else if (pc == rom_patches.save.start) // save
-        {
-          int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
-          if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
-          {
-            pc = rom_patches.save.retAddr;
-            op = fetchm(pc);
-          }
-        }
+        ts = z80_op();
       }
-      ts = execute_op();
     }
 
     nmi_pending = int_pending = 0;
-    tstates += ts;
 
-    switch (LastInstruction)
+    switch(LastInstruction)
     {
       case LASTINSTOUTFD:
-        NMI_generator = nmi_pending = 0;
+        NMI_generator = 0;
         anyout();
       break;
+
       case LASTINSTOUTFE:
         NMI_generator = 1;
         anyout();
       break;
+
       case LASTINSTINFE:
         if (!NMI_generator)
         {
@@ -477,87 +549,45 @@ void zx81_loop(void)
             vsync_raise();
           }
         }
-#ifdef OSS_SOUND_SUPPORT
-        if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
-        {
-            sound_beeper(1);
-        }
-#endif
-
       break;
+
       case LASTINSTOUTFF:
         anyout();
       break;
     }
 
-    // Plot data in shift register
-    // Note subtract 6 as this leaves the smallest positive number
-    // of bits to carry to next byte (2)
-    if ((v || chromamode) &&
-        (RasterX >= (disp.start_x - adjustStartX - 6)) &&
-        (RasterX < (disp.end_x - adjustStartX)) &&
-        (RasterY >= (disp.start_y - adjustStartY)) &&
-        (RasterY < (disp.end_y - adjustStartY)))
-    {
-      if (chromamode)
-      {
-        int k = (dest + RasterX) >> 3;
-        scrnbmpc_new[k] = colour;
-        scrnbmp_new[k] = v;
-      }
-      else
-      {
-        if (v)
-        {
-          int k = dest + RasterX;
-          int kh = k >> 3;
-          int kl = k & 7;
-
-          if (kl)
-          {
-            scrnbmp_new[kh++] |= (v >> kl);
-            scrnbmp_new[kh] = (v << (8 - kl));
-          }
-          else
-          {
-            scrnbmp_new[kh] = v;
-          }
-        }
-      }
-    }
-
-    int tstate_inc;
     int states_remaining = ts;
     int since_hstart = 0;
     int tswait = 0;
+    int tstate_inc;
 
     do
     {
-      tstate_inc = states_remaining > MAX_JMP ? MAX_JMP : states_remaining;
+      tstate_inc = states_remaining > MAX_JMP ? MAX_JMP: states_remaining;
       states_remaining -= tstate_inc;
 
-      hsync_counter += tstate_inc;
-      RasterX += (tstate_inc << 1);
+      hsync_counter+=tstate_inc;
+      RasterX += (tstate_inc<<1);
 
       if (hsync_counter >= HLEN)
       {
-        hsync_counter -= HLEN;
-        hsync_pending = 1;
+          hsync_counter -= HLEN;
+          hsync_pending = 1;
       }
 
       // Start of HSYNC, and NMI if enabled
-      if (hsync_pending && hsync_counter >= HSYNC_START)
+      if (hsync_pending==1 && hsync_counter>=HSYNC_START)
       {
         if (NMI_generator)
         {
           nmi_pending = 1;
-          if (ts == 4)
+          if (ts==4)
           {
-            tswait = 14 + (3 - states_remaining - (hsync_counter - HSYNC_START));
+          tswait = 14 + (3-states_remaining - (hsync_counter - HSYNC_START));
           }
           else
           {
-            tswait = 14;
+          tswait = 14;
           }
           states_remaining += tswait;
           ts += tswait;
@@ -565,8 +595,6 @@ void zx81_loop(void)
         }
 
         HSYNC_state = 1;
-        hsync_pending = 0;
-
         since_hstart = hsync_counter - HSYNC_START + 1;
 
         if (VSYNC_state || rowcounter_hold)
@@ -579,10 +607,11 @@ void zx81_loop(void)
           rowcounter++;
           rowcounter &= 7;
         }
+        hsync_pending = 2;
       }
 
       // end of HSYNC
-      if (HSYNC_state && hsync_counter >= HSYNC_END)
+      if ((hsync_pending == 2) && (hsync_counter >= HSYNC_END))
       {
         HSYNC_state = 0;
         hsync_pending = 0;
@@ -643,509 +672,481 @@ void zx81_loop(void)
   }
 }
 
-#define SYNCNONE        0
-#define SYNCTYPEH       1
-#define SYNCTYPEV       2
-
-const int scanlinePixelLength = (HLENGTH << 1);
-const int ZX80HSyncDuration = 20;
-
-const int ZX80HSyncDurationPixels = ZX80HSyncDuration * 2;
-const int ZX80HSyncAcceptanceDuration = (3 * ZX80HSyncDuration) / 2;
-const int ZX80HSyncAcceptanceDurationPixels = ZX80HSyncAcceptanceDuration * 2;
-const int ZX80MaximumSupportedScanlineOverhang = ZX80HSyncDuration * 2;
-const int ZX80MaximumSupportedScanlineOverhangPixels = ZX80MaximumSupportedScanlineOverhang * 2;
-const int InterruptAcknowledgementDuration = 3; // The acknowledgement spans 3 clock cycles
-
-const int PortActiveDuration = 3;
-const int PortActiveDurationPixels = PortActiveDuration * 2;
-const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;
-const int scanlineThresholdPixelLength = scanlinePixelLength + ZX80MaximumSupportedScanlineOverhangPixels;
-
-int nosync_lines = 0;
-
 void zx80_loop(void)
 {
-  bool videodata;
   unsigned long ts;
-  bool frameSynchronised = false;
-  bool vsyncFound = false;
-  int scanlineCounter = 0;
+  unsigned long tstore;
+  unsigned char v;
+  bool videodata;
+  
+  int addr;
+  int k;
+  int kh;
+  int kl;
 
-  unsigned char v = 0;
-  unsigned char colour;
-  bool allowSoundOutput = false;
-  int lineClockCarryCounter = 0;
-
-  int scanline_len = 0;
-  int sync_type = SYNCNONE;
-  int sync_len = 0;
+#ifdef SUPPORT_CHROMA
+  unsigned char colour = 0;
+#endif
 
   while (1)
   {
-    // New scan line
-    RasterX = S_RasterX;
-    RasterY = S_RasterY;
-    dest = disp.offset + (disp.stride_bit * (adjustStartY + RasterY)) + adjustStartX;
+    LastInstruction = LASTINSTNONE;
 
-    if (sync_type != SYNCNONE)
-    {
-      sync_type = SYNCNONE;
-      sync_len = 0;
-    }
+    // Get the next op, calculate the next byte to display and execute the op
+    op = fetchm(pc);
 
-    // Handle line carry over here
-    if (lineClockCarryCounter > 0)
+    intsample = 1;
+    m1cycles = 1;
+
+    if (m1not && pc<0xC000)
     {
-      scanline_len = lineClockCarryCounter << 1;
-      RasterX += scanline_len;
-      lineClockCarryCounter = 0;
+      videodata = false;
     }
     else
     {
-      scanline_len = 0;
+      videodata = (pc&0x8000) ? true: false;
     }
 
-    do // instructions within a scanline
+    if(videodata && !(op & 0x40))
     {
-      v = 0;
-      ts = 0;
-      LastInstruction = LASTINSTNONE;
-      colour = (bordercolour << 4) + bordercolour;
-
-      // Get the next op, calculate the next byte to display and execute the op
-      op = fetchm(pc);
-
-      if (m1not && pc<0xC000)
+      if ((i < 0x20) || (i < 0x40 && LowRAM && (!useWRX)))
       {
-        videodata = false;
-      }
-      else
-      {
-        videodata = (pc&0x8000) ? true: false;
-      }
+        if (chr128 && i > 0x20 && i & 1)
+          addr = ((i & 0xfe) << 8) | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3)|rowcounter;
+        else
+          addr = ((i & 0xfe) << 8) | ((op & 0x3f) << 3) | rowcounter;
 
-      if(videodata && !(op&64))
-      {
-        v=0xff;
-
-        if ((i<0x20) || (i<0x40 && LowRAM && (!useWRX)))
+        if (UDGEnabled && (addr >= 0x1E00) && (addr < 0x2000))
         {
-          int addr;
-          if (chr128 && i>0x20 && i&1)
-            addr = ((i&0xfe)<<8)|((((op&128)>>1)|(op&63))<<3)|rowcounter;
-          else
-            addr = ((i&0xfe)<<8)|((op&63)<<3)|rowcounter;
-
-          if (UDGEnabled && addr>=0x1E00 && addr<0x2000)
-          {
-            v = mem[addr + ((op&128) ? 0x6800 : 0x6600)];
-          }
-          else
-          {
-            v = mem[addr];
-          }
+          v = mem[addr + ((op & 0x80) ? 0x6800 : 0x6600)];
         }
         else
         {
-          int addr = (i<<8)|(r&0x80)|(radjust&0x7f);
-          if (useWRX)
-          {
-            v = mem[addr];
-          }
+          v = mem[addr];
         }
-        v = (op&128)?~v:v;
-
-        if (chromamode)
-        {
-            if (chromamode & 0x10)
-                colour = fetch(pc);
-            else
-                colour = fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
-        }
-        op=0; /* the CPU sees a nop */
+      }
+      else if (useWRX)
+      {
+        v = mem[(i << 8) | (r & 0x80) | (radjust & 0x7f)];
       }
       else
       {
-        if (pc == rom_patches.load.start) // load
-        {
-          int run_rom;
-          if(!rom4k && de < 0x8000)
-          {
-            run_rom = sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
-          }
-          else /* if((!rom4k && de >= 0x8000) || rom4k) */
-          {
-            run_rom = sdl_load_file(rom4k ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
-          }
-          if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
-          {
-            pc = rom_patches.load.retAddr;
-            op = fetchm(pc);
-          }
-        }
-        else if (pc == rom_patches.save.start) // save
-        {
-          int run_rom = sdl_save_file(hl, rom4k ? SAVE_FILE_METHOD_UNNAMEDSAVE : SAVE_FILE_METHOD_NAMEDSAVE);
-          if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
-          {
-            pc = rom_patches.save.retAddr;
-            op = fetchm(pc);
-          }
-        }
+        v = 0xff;
       }
-      // execute the operation
-      ts = execute_op();
+      v = (op & 0x80) ? ~v : v;
 
-      // Update the flip flop
-      prevVideoFlipFlop3Q = videoFlipFlop3Q;
-
-      for (int i = 0; i < m1cycles; i++)
+#ifdef SUPPORT_CHROMA
+      if (chromamode)
       {
-        if (videoFlipFlop3Clear)
-        {
-          videoFlipFlop3Q = videoFlipFlop2Q;
-        }
-
-        videoFlipFlop2Q = !videoFlipFlop1Q;
+        colour = (chromamode & 0x10) ? fetch(pc) : fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
+        chroma_set = (colour ^ fullcolour) & 0xf0;
       }
+#endif
+      /* The CPU sees a nop - so skip the Z80 emulation loop */
+      pc++;
+      radjust++;
 
-      if (!videoFlipFlop3Q)
-      {
-        videoFlipFlop1Q = 0;
-
-        if (prevVideoFlipFlop3Q)
-        {
-          rowcounter = (rowcounter + 1) & 7;
-        }
-      }
-
-      // execute an interrupt
-      if (intsample && !((radjust - 1) & 0x40) && iff1)
-      {
-        int ti = z80_interrupt();
-
-        if (ti > 0)
-        {
-          if (videoFlipFlop3Clear)
-          {
-            videoFlipFlop3Q = videoFlipFlop2Q;
-          }
-
-          videoFlipFlop2Q = !videoFlipFlop1Q;
-          videoFlipFlop1Q = 1;
-
-          ts += ti;
-        }
-      }
-
+      ts = 4;
+      tstates += 4;
       // Plot data in shift register
       // Note subtract 6 as this leaves the smallest positive number
       // of bits to carry to next byte (2)
-      if ((v || chromamode) &&
-          (RasterX >= (disp.start_x - adjustStartX - 6)) &&
-          (RasterX < (disp.end_x - adjustStartX)) &&
-          (RasterY >= (disp.start_y - adjustStartY)) &&
-          (RasterY < (disp.end_y - adjustStartY)))
+#ifdef SUPPORT_CHROMA
+      if ((v || chroma_set) &&
+#else
+      if (v &&
+#endif
+          (RasterX >= startX) &&
+          (RasterX < endX) &&
+          (RasterY >= startY) &&
+          (RasterY < endY))
       {
+#ifdef SUPPORT_CHROMA
         if (chromamode)
         {
-          int k = (dest + RasterX) >> 3;
+          k = (dest + RasterX) >> 3;
           scrnbmpc_new[k] = colour;
           scrnbmp_new[k] = v;
+          chroma_set = 0;
         }
         else
         {
-          if (v)
+#endif
+          k = dest + RasterX;
+          kh = k >> 3;
+          kl = k & 7;
+
+          if (kl)
           {
-            int k = dest + RasterX;
-            int kh = k >> 3;
-            int kl = k & 7;
-
-            if (kl)
-            {
-              scrnbmp_new[kh++] |= (v >> kl);
-              scrnbmp_new[kh] = (v << (8 - kl));
-            }
-            else
-            {
-              scrnbmp_new[kh] = v;
-            }
-          }
-        }
-      }
-
-      RasterX += (ts << 1);
-      scanline_len += (ts << 1);
-
-      tstates += ts;
-
-      switch (LastInstruction)
-      {
-        case LASTINSTOUTFD:
-        case LASTINSTOUTFE:
-        case LASTINSTOUTFF:     // VSync end
-          videoFlipFlop1Q = 0;
-          videoFlipFlop2Q = 1;
-          videoFlipFlop3Clear = 1;
-          if (!videoFlipFlop3Q)
-          {
-            sync_len += ts;
-
-            if (sync_len > ZX80HSyncAcceptanceDuration)
-            {
-              videoFlipFlop3Q = 1;
-            }
-          }
-        break;
-
-        case LASTINSTINFE:      // VSync start
-          if (videoFlipFlop3Q)
-          {
-            sync_len = PortActiveDuration;
+            scrnbmp_new[kh++] |= (v >> kl);
+            scrnbmp_new[kh] = (v << (8 - kl));
           }
           else
           {
-            sync_len += ts;
+            scrnbmp_new[kh] = v;
           }
+#ifdef SUPPORT_CHROMA
+        }
+#endif
+      }
+    }
+    else
+    {
+      ts = z80_op();
+    }
 
-          videoFlipFlop1Q = 1;
-          videoFlipFlop3Clear = 0;
-          videoFlipFlop3Q = 0;
-          rowcounter = 0;
-        break;
+    // Update the flip flop
+    prevVideoFlipFlop3Q = videoFlipFlop3Q;
 
-        default:
-          if (!videoFlipFlop3Q)
-          {
-            sync_len += ts;
-          }
-        break;
+    for (int i = 0; i < m1cycles; i++)
+    {
+      if (videoFlipFlop3Clear)
+      {
+        videoFlipFlop3Q = videoFlipFlop2Q;
       }
 
+      videoFlipFlop2Q = !videoFlipFlop1Q;
+    }
 
-      if (prevVideoFlipFlop3Q != videoFlipFlop3Q)
+    if (!videoFlipFlop3Q)
+    {
+      videoFlipFlop1Q = 0;
+
+      if (prevVideoFlipFlop3Q)
       {
-        videoFlipFlop3Q ? vsync_lower() : vsync_raise();
-        if (allowSoundOutput) sound_beeper(videoFlipFlop3Q);
+        rowcounter = (rowcounter + 1) & 7;
+      }
+    }
+
+    // execute an interrupt
+    if (intsample && !((radjust - 1) & 0x40) && iff1)
+    {
+      tstore = z80_interrupt();
+      tstates += tstore;
+      ts += tstore;
+
+      // single m1Cycle
+      if (videoFlipFlop3Clear)
+      {
+        videoFlipFlop3Q = videoFlipFlop2Q;
       }
 
-      if (videoFlipFlop3Q && (sync_len > 0))
-      {
-        // The line is now complete
-        if (sync_len <= ZX80HSyncAcceptanceDuration)
+      videoFlipFlop2Q = !videoFlipFlop1Q;
+      videoFlipFlop1Q = 1;
+    }
+
+    RasterX += (ts << 1);
+    scanline_len += (ts << 1);
+    if (RasterX >= scanlinePixelLength)
+    {
+      RasterX -= scanlinePixelLength;
+      RasterY++;
+    }
+
+    switch (LastInstruction)
+    {
+      case LASTINSTOUTFD:
+      case LASTINSTOUTFE:
+      case LASTINSTOUTFF:     // VSync end
+        videoFlipFlop1Q = 0;
+        videoFlipFlop2Q = 1;
+        videoFlipFlop3Clear = 1;
+        if (!videoFlipFlop3Q)
         {
-          sync_type = SYNCTYPEH;
+          sync_len += ts;
+
+          if (sync_len > ZX80HSyncAcceptanceDuration)
+          {
+            videoFlipFlop3Q = 1;
+          }
+        }
+      break;
+
+      case LASTINSTINFE:      // VSync start
+        if (videoFlipFlop3Q)
+        {
+          sync_len = PortActiveDuration;
         }
         else
         {
-          sync_type = SYNCTYPEV;
+          sync_len += ts;
         }
 
-        if (sync_type == SYNCTYPEV)
+        videoFlipFlop1Q = 1;
+        videoFlipFlop3Clear = 0;
+        videoFlipFlop3Q = 0;
+        rowcounter = 0;
+      break;
+
+      default:
+        if (!videoFlipFlop3Q)
         {
-          int overhangPixels = scanline_len - scanlinePixelLength;
-
-          if (overhangPixels < 0)
-          {
-            if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
-            {
-              lineClockCarryCounter = 0;
-              scanline_len = scanlinePixelLength;
-            }
-            else
-            {
-              lineClockCarryCounter = scanline_len / 2;
-              scanline_len = scanlinePixelLength;
-            }
-          }
-          else if (overhangPixels > 0)
-          {
-            lineClockCarryCounter = overhangPixels / 2;
-            scanline_len = scanlinePixelLength;
-          }
+          sync_len += ts;
         }
-        else if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
-        {
-          lineClockCarryCounter = ts;
-          scanline_len = scanlinePixelLength;
-        }
-      }
-      // Check for end of frame
-      if (tstates >= tsmax)
-      {
-        tstates -= tsmax;
-
-        frames++;
-        frame_pause();
-      }
-
-      /* this isn't used for any sort of Z80 interrupts,
-        * purely for the emulator's UI.
-        */
-      if (interrupted)
-      {
-        if (interrupted == 1)
-        {
-          do_interrupt(); /* also zeroes it */
-        }
-        /* I've added these new interrupt types to support a thorough
-          * emulator reset and to do a proper exit i.e. back to main */
-        else if (interrupted == INTERRUPT_EMULATOR_RESET ||
-                  interrupted == INTERRUPT_EMULATOR_EXIT)
-        {
-          return;
-        }
-        else /* must be 2 */
-        {
-          /* a kludge to let us do a reset */
-          interrupted = 0;
-          a = f = b = c = d = e = h = l = a1 = f1 = b1 = c1 = d1 = e1 = h1 = l1 = i = iff1 = iff2 = im = r = 0;
-          ixoriy = new_ixoriy = 0;
-          ix = iy = sp = pc = 0;
-          tstates = radjust = 0;
-          S_RasterX = 0;
-          S_RasterY = 0;
-
-          /* ZX80 Hardware */
-          videoFlipFlop1Q = 1;
-          videoFlipFlop2Q = 0;
-          videoFlipFlop3Q = 0;
-          videoFlipFlop3Clear = 0;
-          prevVideoFlipFlop3Q = 0;
-
-          frameSynchronised = false;
-          vsyncFound = false;
-          scanlineCounter = 0;
-        }
-      }
+      break;
     }
-    while ((scanline_len < scanlineThresholdPixelLength) && (sync_type == SYNCNONE));
 
-    // Process end of line and possibly end of frame
-    if (sync_type == SYNCTYPEV)
+    if (prevVideoFlipFlop3Q != videoFlipFlop3Q)
     {
-      if (vsyncFound)
+      videoFlipFlop3Q ? vsync_lower() : vsync_raise();
+      // ZX80 HSYNC sound - excluded if Chroma
+#ifdef OSS_SOUND_SUPPORT      
+      if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
       {
-        frameSynchronised = (RasterY >= VSYNC_TOLERANCEMIN) && (RasterY <= VSYNC_TOLERANCEMAX) &&
-                            (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
-        vsyncFound = frameSynchronised;
+          sound_beeper(videoFlipFlop3Q);
+      }
+#endif
+
+    }
+
+    if (videoFlipFlop3Q && (sync_len > 0))
+    {
+      // The line is now complete
+      if (sync_len <= ZX80HSyncAcceptanceDuration)
+      {
+        sync_type = SYNCTYPEH;
       }
       else
       {
-        vsyncFound = (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
+        sync_type = SYNCTYPEV;
       }
-      scanlineCounter = 0;
 
-      //allowSoundOutput = sound_vsync && (!chromamode || (chromamode && !frameSynchronised));
-      allowSoundOutput = (sound_vsync && !frameSynchronised);
+      if (sync_type == SYNCTYPEV)
+      {
+        int overhangPixels = scanline_len - scanlinePixelLength;
 
-      if (!vsyncFound)
+        if (overhangPixels < 0)
+        {
+          if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
+          {
+            lineClockCarryCounter = 0;
+          }
+          else
+          {
+            lineClockCarryCounter = scanline_len > 1;
+          }
+          scanline_len = scanlinePixelLength;
+        }
+        else if (overhangPixels > 0)
+        {
+          lineClockCarryCounter = overhangPixels > 1;
+          scanline_len = scanlinePixelLength;
+        }
+      }
+      else if (scanline_len >= ZX80HSyncAcceptancePixelPosition)
+      {
+        lineClockCarryCounter = ts;
+        scanline_len = scanlinePixelLength;
+      }
+    }
+
+    // If we are at the end of a zx80 line then process it
+    if (!((scanline_len < scanlineThresholdPixelLength) && (sync_type == SYNCNONE)))
+    {
+      if (sync_type == SYNCTYPEV)
+      {
+        static bool found = false;
+        static int count = 0;
+
+        // Frames synchonised after second vsyncs in range
+        if (vsyncFound)
+        {
+          if (!found)
+          {
+            printf("T %i\n", ++count);
+            found = true;
+          }
+
+          frameNotSync = !((RasterY >= VSYNC_TOLERANCEMIN) && (RasterY <= VSYNC_TOLERANCEMAX) &&
+                          (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX));
+          vsyncFound = !frameNotSync;
+        }
+        else
+        {
+          if (found)
+          {
+            printf("F %i\n", count);
+            found = false;
+          }
+          vsyncFound = (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
+        }
+        scanlineCounter = 0;
+
+        if (!vsyncFound)
+        {
+          sync_type = SYNCNONE;
+          sync_len = 0;
+        }
+        nosync_lines = 0;
+      }
+      else
+      {
+        if (scanlineCounter < VSYNC_TOLERANCEMAX)
+        {
+          if (sync_type == SYNCTYPEH)
+          {
+            scanlineCounter++;
+          }
+        }
+
+        if (((sync_type == SYNCNONE) && videoFlipFlop3Q) || (scanlineCounter == VSYNC_TOLERANCEMAX))
+        {
+          frameNotSync = true;
+          vsyncFound = false;
+        }
+
+        if (sync_type == SYNCNONE)
+        {
+          int overhangPixels = scanline_len - scanlinePixelLength;
+          if (overhangPixels > 0)
+          {
+            lineClockCarryCounter = (overhangPixels >> 1);
+            scanline_len = scanlinePixelLength;
+          }
+          nosync_lines++;
+        }
+        else
+        {
+          nosync_lines = 0;
+        }
+      }
+
+      // Synchronise the TV position
+      S_RasterX += scanline_len;
+      if (S_RasterX >= scanlinePixelLength)
+      {
+        S_RasterX -= scanlinePixelLength;
+        S_RasterY++;
+
+        if (S_RasterY >= VSYNC_TOLERANCEMAX)
+        {
+          S_RasterX = 0;
+          sync_type=SYNCTYPEV;
+          if (sync_len < HSYNC_MINLEN)
+          {
+            sync_len=HSYNC_MINLEN;
+          }
+        }
+      }
+
+      if (sync_len<HSYNC_MINLEN) sync_type=0;
+
+      if (sync_type)
+      {
+        if (S_RasterX > HSYNC_TOLERANCEMAX)
+        {
+          S_RasterX=0;
+          S_RasterY++;
+        }
+
+        if (S_RasterY>=VSYNC_TOLERANCEMAX ||
+            (sync_len>VSYNC_MINLEN && S_RasterY>VSYNC_TOLERANCEMIN))
+        {
+          if (nosync_lines >= FRAME_SCAN)
+          {
+            // Whole frame with no sync, so blank the display
+            memset(scrnbmp, 0xff, disp.length);
+            if (chromamode) memset(scrnbmpc, 0x0, disp.length);
+            nosync_lines -= FRAME_SCAN;
+          }
+          else
+          {
+            memcpy(scrnbmp, scrnbmp_new, disp.length);
+            if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
+          }
+
+          // Display the frame
+          memset(scrnbmp_new, 0x00, disp.length);
+          if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
+          if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
+
+          S_RasterX = 0;
+          S_RasterY = 0;
+        }
+      }
+
+      // Update data for new ZX80 scanline
+      RasterX = S_RasterX;
+      RasterY = S_RasterY;
+      dest = disp.offset + (disp.stride_bit * (adjustStartY + RasterY)) + adjustStartX;
+
+      if (sync_type != SYNCNONE)
       {
         sync_type = SYNCNONE;
         sync_len = 0;
       }
-      nosync_lines = 0;
-    }
-    else
-    {
-      if (scanlineCounter < VSYNC_TOLERANCEMAX)
-      {
-        if (sync_type == SYNCTYPEH)
-        {
-          scanlineCounter++;
-        }
-      }
 
-      if (((sync_type == SYNCNONE) && videoFlipFlop3Q) || (scanlineCounter == VSYNC_TOLERANCEMAX))
+      // Handle line carry over here
+      if (lineClockCarryCounter > 0)
       {
-              frameSynchronised = false;
-              vsyncFound = false;
-              allowSoundOutput = sound_vsync;
-      }
-
-      if (sync_type == SYNCNONE)
-      {
-        int overhangPixels = scanline_len - scanlinePixelLength;
-        if (overhangPixels > 0)
-        {
-          lineClockCarryCounter = (overhangPixels >> 1);
-          scanline_len = scanlinePixelLength;
-        }
-        nosync_lines++;
+        scanline_len = lineClockCarryCounter << 1;
+        RasterX += scanline_len;
+        lineClockCarryCounter = 0;
       }
       else
       {
-        nosync_lines = 0;
+        scanline_len = 0;
       }
     }
-
-    // Synchronise the TV position
-    S_RasterX += scanline_len;
-    if (S_RasterX >= scanlinePixelLength)
+    // Check for end of frame
+    if (tstates >= tsmax)
     {
-      S_RasterX -= scanlinePixelLength;
-      S_RasterY++;
+      tstates -= tsmax;
 
-      if (S_RasterY >= VSYNC_TOLERANCEMAX)
-      {
-        S_RasterX = 0;
-        sync_type=SYNCTYPEV;
-        if (sync_len < HSYNC_MINLEN)
-        {
-          sync_len=HSYNC_MINLEN;
-        }
-      }
+      frames++;
+      frame_pause();
     }
 
-    if (sync_len<HSYNC_MINLEN) sync_type=0;
-
-    if (sync_type)
+    /* this isn't used for any sort of Z80 interrupts,
+      * purely for the emulator's UI.
+      */
+    if (interrupted)
     {
-      if (S_RasterX > HSYNC_TOLERANCEMAX)
+      if (interrupted == 1)
       {
-        S_RasterX=0;
-        S_RasterY++;
+        do_interrupt(); /* also zeroes it */
       }
-
-      if (S_RasterY>=VSYNC_TOLERANCEMAX ||
-          (sync_len>VSYNC_MINLEN && S_RasterY>VSYNC_TOLERANCEMIN))
+      /* I've added these new interrupt types to support a thorough
+        * emulator reset and to do a proper exit i.e. back to main */
+      else if (interrupted == INTERRUPT_EMULATOR_RESET ||
+                interrupted == INTERRUPT_EMULATOR_EXIT)
       {
-        if (nosync_lines >= FRAME_SCAN)
-        {
-          // Whole frame with no sync, so blank the display
-          memset(scrnbmp, 0xff, disp.length);
-          if (chromamode) memset(scrnbmpc, 0x0, disp.length);
-          nosync_lines -= FRAME_SCAN;
-        }
-        else
-        {
-          memcpy(scrnbmp, scrnbmp_new, disp.length);
-          if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
-        }
-
-        // Display the frame
-        memset(scrnbmp_new, 0x00, disp.length);
-        if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
-        if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
-
+        return;
+      }
+      else /* must be 2 */
+      {
+        /* a kludge to let us do a reset */
+        interrupted = 0;
+        a = f = b = c = d = e = h = l = a1 = f1 = b1 = c1 = d1 = e1 = h1 = l1 = i = iff1 = iff2 = im = r = 0;
+        ixoriy = new_ixoriy = 0;
+        ix = iy = sp = pc = 0;
+        tstates = radjust = 0;
         S_RasterX = 0;
         S_RasterY = 0;
+
+        /* ZX80 Hardware */
+        videoFlipFlop1Q = 1;
+        videoFlipFlop2Q = 0;
+        videoFlipFlop3Q = 0;
+        videoFlipFlop3Clear = 0;
+        prevVideoFlipFlop3Q = 0;
+
+        frameNotSync = true;
+        vsyncFound = false;
+        scanlineCounter = 0;
       }
     }
   }
 }
 
-static unsigned long execute_op(void)
+static unsigned long z80_op(void)
 {
-  unsigned long states;
-  unsigned long  tstore = tstates;
+  unsigned long tstore = tstates;
+
   do
   {
     pc++;
     radjust++;
-    intsample = 1;
-    m1cycles = 1;
 
     switch (op)
     {
@@ -1162,9 +1163,7 @@ static unsigned long execute_op(void)
     }
   } while (ixoriy);
 
-  states = tstates - tstore;
-  tstates = tstore;
-  return states;
+  return tstates - tstore;
 }
 
 void z80_reset(void)
@@ -1240,10 +1239,7 @@ static inline void checkhsync(int tolchk)
   if ((!tolchk && sync_len >= HSYNC_MINLEN && sync_len <= (HSYNC_MAXLEN + MAX_JMP) && RasterX >= HSYNC_TOLERANCEMIN) ||
       (tolchk && RasterX >= HSYNC_TOLERANCEMAX))
   {
-    if (zx80)
-      RasterX = (hsync_counter - HSYNC_END) << 1;
-    else
-      RasterX = ((hsync_counter - HSYNC_END) < MAX_JMP) ? ((hsync_counter - HSYNC_END) << 1) : 0;
+    RasterX = ((hsync_counter - HSYNC_END) < MAX_JMP) ? ((hsync_counter - HSYNC_END) << 1) : 0;
     RasterY++;
     dest += disp.stride_bit;
   }
@@ -1254,6 +1250,9 @@ static inline void checkvsync(int tolchk)
   if ((!tolchk && sync_len >= VSYNC_MINLEN && RasterY >= VSYNC_TOLERANCEMIN) ||
       (tolchk && RasterY >= VSYNC_TOLERANCEMAX))
   {
+    static bool found = false;
+    static int count = 0;
+
     if (sync_len>(int)tsmax)
     {
       // If there has been no sync for an entire frame then blank the screen to black
@@ -1261,17 +1260,38 @@ static inline void checkvsync(int tolchk)
       if (chromamode) memset(scrnbmpc, 0x0, disp.length);
       sync_len = 0;
       frameNotSync = true;
+      vsyncFound = false;
     }
     else
     {
       memcpy(scrnbmp, scrnbmp_new, disp.length);
       if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
-      frameNotSync = (RasterY >= VSYNC_TOLERANCEMAX);
+      if (vsyncFound)
+      {
+        if (!found)
+        {
+          printf("T %i\n", ++count);
+          found = true;
+        }
+
+        frameNotSync = (RasterY >= VSYNC_TOLERANCEMAX);
+      }
+      else
+      {
+        if (found)
+        {
+          printf("F %i\n", count);
+          found = false;
+        }
+        frameNotSync = true;
+        vsyncFound = (RasterY < VSYNC_TOLERANCEMAX);
+      }
     }
     memset(scrnbmp_new, 0x00, disp.length);
     if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
     if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
     RasterY = 0;
+
     dest = disp.offset + (disp.stride_bit * adjustStartY) + adjustStartX;
   }
 }
@@ -1304,17 +1324,16 @@ static void anyout(void)
 {
   if (VSYNC_state)
   {
-    if (zx80)
-      VSYNC_state = 2; // will be reset by HSYNC circuitry
-    else
+    VSYNC_state = 0;
+    // A fairly arbitrary value selected after comparing with a "real" ZX81
+    if ((hsync_counter < HSYNC_START) || (hsync_counter >= 178) )
     {
-      VSYNC_state = 0;
-      // A fairly arbitrary value selected after comparing with a "real" ZX81
-      if ((hsync_counter < HSYNC_START) || (hsync_counter >= 178))
-      {
-        rowcounter_hold = true;
-      }
-      vsync_lower();
+      rowcounter_hold = true;
+    }
+    vsync_lower();
+    if ((sync_len > HSYNC_MAXLEN) && (RasterY < VSYNC_TOLERANCEMIN))
+    {
+        vsyncFound = false;
     }
   }
 }
@@ -1337,6 +1356,12 @@ unsigned int in(int h, int l)
 
   if (!(l & 1))
   {
+#ifdef OSS_SOUND_SUPPORT
+    if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+    {
+        sound_beeper(0);
+    }
+#endif
     LastInstruction = LASTINSTINFE;
 
     if (l == 0x7e)
@@ -1398,6 +1423,13 @@ unsigned int in(int h, int l)
 
 unsigned int out(int h, int l, int a)
 {
+#ifdef OSS_SOUND_SUPPORT
+  if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
+  {
+    sound_beeper(1);
+  }
+#endif
+
   if (h==0x7f && l==0xef)
   {	/* chroma 80 and Chroma 81*/
 #ifdef DEBUG_CHROMA
@@ -1423,21 +1455,8 @@ unsigned int out(int h, int l, int a)
       adjustChroma(false);
     }
     LastInstruction = LASTINSTOUTFF;
-#ifdef OSS_SOUND_SUPPORT
-    if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
-    {
-      sound_beeper(0);
-    }
-#endif
     return 0;
   }
-
-#ifdef OSS_SOUND_SUPPORT
-  if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
-  {
-    sound_beeper(0);
-  }
-#endif
 
   switch (l)
   {

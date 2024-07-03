@@ -1,6 +1,7 @@
 /* Emulation of the Z80 CPU with hooks into the other parts of z81.
  * Copyright (C) 1994 Ian Collier.
  * z81 changes (C) 1995-2001 Russell Marks.
+ * sz81 further development (C) 2023-2024 Ian Jordan
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,11 +66,12 @@ static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * 
 static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_PADDING;
 unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_PADDING;
 
-int vsx = 0;
-int vsy = 0;
+static int vsx = 0;
+static int vsy = 0;
 int framewait = 0;
 int ay_reg = 0;
-static int LastInstruction;
+int LastInstruction;
+bool frameNotSync = true;
 
 #define RUN_ROM 2
 
@@ -95,6 +97,7 @@ static int LastInstruction;
 
 static const int HSYNC_TOLERANCEMIN = HSCAN - HTOL;
 static const int HSYNC_TOLERANCEMAX = HSCAN + HTOL;
+static int FRAME_SCAN = SCAN50;
 
 static const int HSYNC_MINLEN = HMIN;
 static const int HSYNC_MAXLEN = HMAX;
@@ -103,17 +106,14 @@ static const int VSYNC_MINLEN = VMIN;
 static int VSYNC_TOLERANCEMIN = SCAN50 - VTOL;
 static int VSYNC_TOLERANCEMAX = SCAN50 + VTOL;
 
-static int FRAME_SCAN = SCAN50;
-
 static const int HSYNC_START = 16;
 static const int HSYNC_END = 32;
 static const int HLEN = HLENGTH;
 static const int MAX_JMP = 8;
 
-static int S_RasterX = 0;
-static int S_RasterY = 0;
 static int RasterX = 0;
 static int RasterY = 0;
+static int dest;
 
 static int adjustStartX=0;
 static int adjustStartY=0;
@@ -122,9 +122,6 @@ static int startY = 0;
 static int endX = 0;
 static int endY = 0;
 
-static bool frameNotSync = true;
-static int dest;
-
 static int int_pending, nmi_pending, hsync_pending;
 static int NMI_generator;
 static int VSYNC_state, HSYNC_state, SYNC_signal;
@@ -132,10 +129,11 @@ static int psync, sync_len;
 static int rowcounter = 0;
 static int hsync_counter = 0;
 static bool rowcounter_hold = false;
-bool running_rom = false;
+static bool running_rom = false;
 
 extern int printer_inout(int is_out, int val);
 
+static void setRemainingDisplayBoundaries(void);
 static inline void checkhsync(int tolchk);
 static inline void checkvsync(int tolchk);
 static inline void checksync(int inc);
@@ -144,16 +142,97 @@ static void vsync_raise(void);
 static void vsync_lower(void);
 static inline int z80_interrupt(void);
 static inline int nmi_interrupt(void);
+static unsigned long z80_op(void);
+
+static void adjustChroma(bool start);
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
 static void zx80_loop(void);
 static void zx81_loop(void);
-static void setRemainingDisplayBoundaries(void);
-static void adjustChroma(bool start);
-static unsigned long z80_op(void);
 
 #ifdef LOAD_AND_SAVE
 static void loadAndSaveROM(void);
 #endif
+
+bool frameSync = false;
+
+unsigned char a, f, b, c, d, e, h, l;
+unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
+unsigned short pc;
+unsigned short ix, iy, sp;
+unsigned char radjust;
+unsigned char ixoriy, new_ixoriy;
+unsigned char intsample=0;
+unsigned char op;
+unsigned short m1cycles;
+
+/* ZX80 specific */
+#define SYNCNONE        0
+#define SYNCTYPEH       1
+#define SYNCTYPEV       2
+
+static int S_RasterX = 0;
+static int S_RasterY = 0;
+
+static int scanlineCounter = 0;
+
+static int videoFlipFlop1Q = 1;
+static int videoFlipFlop2Q = 0;
+static int videoFlipFlop3Q = 0;
+static int videoFlipFlop3Clear = 0;
+static int prevVideoFlipFlop3Q = 0;
+
+static int lineClockCarryCounter = 0;
+
+static int scanline_len = 0;
+static int sync_type = SYNCNONE;
+
+static int nosync_lines = 0;
+static bool vsyncFound = false;
+
+static const int scanlinePixelLength = (HLENGTH << 1);
+static const int ZX80HSyncDuration = 20;
+
+static const int ZX80HSyncAcceptanceDuration = (3 * ZX80HSyncDuration) / 2;
+static const int ZX80HSyncAcceptanceDurationPixels = ZX80HSyncAcceptanceDuration * 2;
+static const int ZX80MaximumSupportedScanlineOverhang = ZX80HSyncDuration * 2;
+static const int ZX80MaximumSupportedScanlineOverhangPixels = ZX80MaximumSupportedScanlineOverhang * 2;
+
+static const int PortActiveDuration = 3;
+static const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;
+static const int scanlineThresholdPixelLength = scanlinePixelLength + ZX80MaximumSupportedScanlineOverhangPixels;
+
+void setEmulatedTV(bool fiftyHz, uint16_t vtol)
+{
+  // This can look confusing as we have an emulated display, and a real
+  // display, both can be at either 50 or 60 Hz
+  if (fiftyHz)
+  {
+    VSYNC_TOLERANCEMIN = SCAN50 - vtol;
+    VSYNC_TOLERANCEMAX = SCAN50 + vtol;
+    FRAME_SCAN = SCAN50;
+  }
+  else
+  {
+    VSYNC_TOLERANCEMIN = SCAN60 - vtol;
+    VSYNC_TOLERANCEMAX = SCAN60 + vtol;
+    FRAME_SCAN = SCAN60;
+  }
+}
+
+void setDisplayBoundaries(void)
+{
+  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
+  if (centreScreen)
+  {
+    if (!(fullDisplay || fiveSevenSix))
+    {
+      adjustStartX = DISPLAY_N_PIXEL_OFF + (zx80 ? DISPLAY_ZX80_OFF : 0);
+      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
+    }
+  }
+
+  setRemainingDisplayBoundaries();
+}
 
 static void setRemainingDisplayBoundaries(void)
 {
@@ -191,38 +270,40 @@ static void adjustChroma(bool start)
   }
 }
 
-void setDisplayBoundaries(void)
+
+#ifdef LOAD_AND_SAVE
+static void loadAndSaveROM(void)
 {
-  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
-  if (centreScreen)
+  if (!running_rom)
   {
-    if (!(fullDisplay || fiveSevenSix))
+    if (pc == rom_patches.load.start) // load
     {
-      adjustStartX = DISPLAY_N_PIXEL_OFF + (zx80 ? DISPLAY_ZX80_OFF : 0);
-      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
+      int run_rom = sdl_load_file(de, (de < 0x8000) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
+      if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
+      {
+        pc = rom_patches.rstrtAddr;
+        op = fetchm(pc);
+      }
     }
-  }
-
-  setRemainingDisplayBoundaries();
-}
-
-static void setEmulatedTV(bool fiftyHz, uint16_t vtol)
-{
-  // This can look confusing as we have an emulated display, and a real
-  // display, both can be at either 50 or 60 Hz
-  if (fiftyHz)
-  {
-    FRAME_SCAN = SCAN50;
-    VSYNC_TOLERANCEMIN = SCAN50 - vtol;
-    VSYNC_TOLERANCEMAX = SCAN50 + vtol;
+    else if (pc == rom_patches.save.start) // save
+    {
+      int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
+      if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
+      {
+        pc = rom_patches.rstrtAddr;
+        op = fetchm(pc);
+      }
+    }
   }
   else
   {
-    FRAME_SCAN = SCAN60;
-    VSYNC_TOLERANCEMIN = SCAN60 - vtol;
-    VSYNC_TOLERANCEMAX = SCAN60 + vtol;
+    if (pc == rom_patches.retAddr)
+    {
+      running_rom = false;
+    }
   }
 }
+#endif
 
 static void vsync_raise(void)
 {
@@ -307,55 +388,6 @@ static void vsync_lower(void)
     memset(start, 0xff, end-start);
   }
 }
-
-unsigned char a, f, b, c, d, e, h, l;
-unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
-unsigned short pc;
-unsigned short m1cycles;
-unsigned short ix, iy, sp;
-unsigned char radjust;
-unsigned char ixoriy, new_ixoriy;
-unsigned char intsample = 0;
-unsigned char op;
-
-#define SYNCNONE        0
-#define SYNCTYPEH       1
-#define SYNCTYPEV       2
-
-static int scanlineCounter = 0;
-
-static int videoFlipFlop1Q = 1;
-static int videoFlipFlop2Q = 0;
-static int videoFlipFlop3Q = 0;
-static int videoFlipFlop3Clear = 0;
-static int prevVideoFlipFlop3Q = 0;
-
-static int lineClockCarryCounter = 0;
-
-static int scanline_len = 0;
-static int sync_type = SYNCNONE;
-static bool vsyncFound = false;
-
-#define SYNCNONE        0
-#define SYNCTYPEH       1
-#define SYNCTYPEV       2
-
-const int scanlinePixelLength = (HLENGTH << 1);
-const int ZX80HSyncDuration = 20;
-
-const int ZX80HSyncDurationPixels = ZX80HSyncDuration * 2;
-const int ZX80HSyncAcceptanceDuration = (3 * ZX80HSyncDuration) / 2;
-const int ZX80HSyncAcceptanceDurationPixels = ZX80HSyncAcceptanceDuration * 2;
-const int ZX80MaximumSupportedScanlineOverhang = ZX80HSyncDuration * 2;
-const int ZX80MaximumSupportedScanlineOverhangPixels = ZX80MaximumSupportedScanlineOverhang * 2;
-const int InterruptAcknowledgementDuration = 3; // The acknowledgement spans 3 clock cycles
-
-const int PortActiveDuration = 3;
-const int PortActiveDurationPixels = PortActiveDuration * 2;
-const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;
-const int scanlineThresholdPixelLength = scanlinePixelLength + ZX80MaximumSupportedScanlineOverhangPixels;
-
-int nosync_lines = 0;
 
 void mainloop()
 {
@@ -1178,75 +1210,33 @@ void z80_reset(void)
   }
 }
 
-#ifdef LOAD_AND_SAVE
-static void loadAndSaveROM(void)
-{
-  if (!running_rom)
-  {
-    if (pc == rom_patches.load.start) // load
-    {
-      int run_rom = sdl_load_file(de, (de < 0x8000) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
-      if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
-      {
-        pc = rom_patches.rstrtAddr;
-        op = fetchm(pc);
-      }
-    }
-    else if (pc == rom_patches.save.start) // save
-    {
-      int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
-      if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
-      {
-        pc = rom_patches.rstrtAddr;
-        op = fetchm(pc);
-      }
-    }
-  }
-  else
-  {
-    if (pc == rom_patches.retAddr)
-    {
-      running_rom = false;
-    }
-  }
-}
-#endif
-
 static inline int z80_interrupt(void)
 {
-  int tinc = 0;
-
-  if (iff1)
+  // NOTE: For optimisation, need to ensure iff1 set before calling this
+  if (fetchm(pc) == 0x76)
   {
-    if (fetchm(pc) == 0x76)
-    {
-      pc++;
-    }
-    iff1 = iff2 = 0;
-    push2(pc);
-    radjust++;
+    pc++;
+  }
+  iff1 = iff2 = 0;
+  push2(pc);
+  radjust++;
 
-    switch (im)
-    {
+  switch (im)
+  {
     case 0: /* IM 0 */
     case 2: /* IM 1 */
       pc = 0x38;
-      tinc = 13;
+      return 13;
       break;
     case 3: /* IM 2 */
-    {
-      int addr = fetch2((i << 8) | 0xff);
-      pc = addr;
-      tinc = 19;
-    }
+      pc = fetch2((i<<8)|0xff);
+      return 19;
     break;
 
     default:
-      tinc = 12;
+      return 12;
       break;
-    }
   }
-  return tinc;
 }
 
 static inline int nmi_interrupt(void)
@@ -1258,7 +1248,7 @@ static inline int nmi_interrupt(void)
   }
   push2(pc);
   radjust++;
-  m1cycles++;
+  //m1cycles++;
   pc = 0x66;
 
   return 11;
@@ -1341,7 +1331,7 @@ static void checksync(int inc)
 {
   if (!SYNC_signal)
   {
-    if (psync == 1)
+    if (psync)
       sync_len = 0;
     sync_len += inc;
     checkhsync(1);

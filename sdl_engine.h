@@ -72,9 +72,6 @@
 /* Variables from the top of z80.c */
 extern unsigned long tstates, frames;
 extern int liney;
-extern int vsy;
-extern unsigned long linestart;
-extern int vsync_toggle, vsync_lasttoggle;
 /* Variables liberated from the top of mainloop */
 extern unsigned char a, f, b, c, d, e, h, l;
 extern unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;

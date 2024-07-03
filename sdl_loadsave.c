@@ -29,6 +29,7 @@ int vsync_toggle=0,vsync_lasttoggle=0;
 unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 int hsyncskip=0;
 int ulacharline=0;
+static int vsy=0;
 
 /* Error macros */
 #define ERROR_D() mem[16384] = 12;

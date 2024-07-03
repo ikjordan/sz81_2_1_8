@@ -40,6 +40,7 @@
 /* Machine models */
 #define MODEL_ZX81 0
 #define MODEL_ZX80 1
+#define MODEL_ZX80_8K 2
 
 /* Load file methods */
 #define LOAD_FILE_METHOD_NONE 0

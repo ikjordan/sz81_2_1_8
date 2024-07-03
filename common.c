@@ -64,12 +64,10 @@ bool UDGEnabled = false;
 bool useQSUDG = false;
 bool LowRAM = true;
 bool chr128 = false;
-int adjustStartY = 0;
-int adjustStartX = 0;
 
 /* Variable set from command line options*/
 bool useNTSC = false;
-bool centreScreen = false;
+bool centreScreen = true;
 bool fullDisplay = false;
 bool fiveSevenSix = false;
 bool romLoad = false;
@@ -125,8 +123,9 @@ int load_selector_state = 0;
 
 int refresh_screen=1;
 
-/* =1 if emulating ZX80 rather than ZX81 */
+/* > 0 if emulating ZX80 hardware rather than ZX81 */
 int zx80=0;
+int rom4k=1;
 
 int ignore_esc=0;
 
@@ -136,6 +135,9 @@ char autoload_filename[1024];
 int chromamode=0;
 unsigned char bordercolour=0x0f;
 unsigned char bordercolournew=0x0f;
+unsigned char fullcolour=0xff;
+unsigned char chroma_set=0;
+
 
 /* not too many prototypes needed... :-) */
 #ifndef SZ81	/* Added by Thunor */
@@ -246,7 +248,7 @@ void loadrom(void)
 #ifdef SZ81	/* Added by Thunor */
 /* sz81 has already preloaded the ROMs so now this function
  * is simply copying the data into the ROM area afresh */
-if(zx80)
+if(rom4k && zx80)
   {
   memcpy(mem,sdl_zx80rom.data,4096);
   }
@@ -287,30 +289,49 @@ else
 
 RomPatches_T rom_patches;
 
-void zx81hacks()
+#ifdef LOAD_AND_SAVE
+RomPatches_T rom_patches;
+#endif
+
+void rom8kPatches()
 {
-  rom_patches.save.start = 0x2fc;
-  rom_patches.save.ret = 0x207;
-  rom_patches.save.use_rom = true;
-  rom_patches.load.start = 0x347;
-  rom_patches.load.ret = 0x207;
-  rom_patches.load.use_rom = true;
-  rom_patches.in.val1 = 0x353;
-  rom_patches.in.val2 = 0x38C;
-  rom_patches.in.val3 = 0x0;
+#ifdef LOAD_AND_SAVE
+  rom_patches.save.start = SAVE_START_8K;
+  rom_patches.save.use_rom = romSave;
+  rom_patches.load.start = LOAD_START_8K;
+  rom_patches.load.use_rom = romLoad;
+  rom_patches.retAddr = LOAD_SAVE_RET_8K;
+  rom_patches.rstrtAddr = LOAD_SAVE_RSTRT_8K;
+#else
+  /* patch save routine */
+  mem[0x2fc]=0xed; mem[0x2fd]=0xfd;
+  mem[0x2fe]=0xc3; mem[0x2ff]=0x07; mem[0x300]=0x02;
+
+  /* patch load routine */
+  mem[0x347]=0xeb;
+  mem[0x348]=0xed; mem[0x349]=0xfc;
+  mem[0x34a]=0xc3; mem[0x34b]=0x07; mem[0x34c]=0x02;
+#endif
 }
 
-void zx80hacks()
+void rom4kPatches()
 {
-  rom_patches.save.start = 0x1b6;
-  rom_patches.save.ret = 0x283;
+#ifdef LOAD_AND_SAVE
+  rom_patches.save.start = SAVE_START_4K;
   rom_patches.save.use_rom = romSave;
-  rom_patches.load.start = 0x206;
-  rom_patches.load.ret = 0x283;
+  rom_patches.load.start = LOAD_START_4K;
   rom_patches.load.use_rom = romLoad;
-  rom_patches.in.val1 = 0x225;
-  rom_patches.in.val2 = 0x233;
-  rom_patches.in.val3 = 0x20d;
+  rom_patches.retAddr = LOAD_SAVE_RET_4K;
+  rom_patches.rstrtAddr = LOAD_SAVE_RSTRT_4K;
+#else
+  /* patch save routine */
+  mem[0x1b6]=0xed; mem[0x1b7]=0xfd;
+  mem[0x1b8]=0xc3; mem[0x1b9]=0x83; mem[0x1ba]=0x02;
+
+  /* patch load routine */
+  mem[0x206]=0xed; mem[0x207]=0xfc;
+  mem[0x208]=0xc3; mem[0x209]=0x83; mem[0x20a]=0x02;
+#endif
 }
 
 #ifdef SZ81
@@ -322,74 +343,34 @@ void initdisplay(void)
   {
     disp.width = DISPLAY_F_WIDTH;
     disp.height = DISPLAY_F_HEIGHT;
-    disp.stride_bit = (DISPLAY_F_PADDING << 3) + DISPLAY_F_WIDTH;
     disp.start_x = DISPLAY_F_START_X;
     disp.start_y = DISPLAY_F_START_Y;
     disp.adjust_x = DISPLAY_F_PIXEL_OFF;
-    disp.padding = DISPLAY_F_PADDING;
   }
   else if (fiveSevenSix)
   {
     disp.width = DISPLAY_P_WIDTH;
     disp.height = DISPLAY_P_HEIGHT;
-    disp.stride_bit = (DISPLAY_P_PADDING << 3) + DISPLAY_P_WIDTH;
     disp.start_x = DISPLAY_P_START_X;
     disp.start_y = DISPLAY_P_START_Y;
     disp.adjust_x = DISPLAY_P_PIXEL_OFF;
-    disp.padding = DISPLAY_P_PADDING;
   }
   else
   {
     disp.width = DISPLAY_N_WIDTH;
     disp.height = DISPLAY_N_HEIGHT;
-    disp.stride_bit = (DISPLAY_N_PADDING << 3) + DISPLAY_N_WIDTH;
     disp.start_x = DISPLAY_N_START_X;
     disp.start_y = DISPLAY_N_START_Y;
     disp.adjust_x = DISPLAY_N_PIXEL_OFF;
-    disp.padding = DISPLAY_N_PADDING;
-
-    if (centreScreen)
-    {
-      adjustStartX = DISPLAY_N_PIXEL_OFF;
-      adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
-    }
   }
 
+  disp.padding = DISPLAY_PADDING;
+  disp.stride_bit = (disp.padding << 3) + disp.width;
   disp.stride_byte = disp.stride_bit >> 3;
   disp.length = disp.stride_byte * disp.height;
   disp.end_x = disp.start_x + disp.width;
   disp.end_y = disp.height + disp.start_y;
   disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
-}
-
-/* Ensure that chroma and pixels are byte aligned*/
-void adjustChroma(bool start)
-{
-  if (start)
-  {
-    if (!adjustStartX)
-    {
-      if (fullDisplay)
-      {
-        adjustStartX = DISPLAY_F_PIXEL_OFF;
-      }
-      else if (fiveSevenSix)
-      {
-        adjustStartX = DISPLAY_P_PIXEL_OFF;
-      }
-      else
-      {
-        adjustStartX = DISPLAY_N_PIXEL_OFF;
-      }
-    }
-  }
-  else
-  {
-    if (!centreScreen)
-    {
-      adjustStartX = 0;
-    }
-  }
 }
 
 #endif
@@ -401,9 +382,15 @@ int ramsize;
 int count;
 int gap = 0;  // For 3K total RAM
 
+// Correct ROM id necessary
+if (zx80)
+{
+  zx80 = (rom4k) ? 1 : 2;
+}
+
 loadrom();
 #ifdef SZ81	/* Added by Thunor */
-if(zx80)
+if(rom4k && zx80)
   {
   memset(mem+0x1000,0,0xf000);
   }
@@ -422,7 +409,7 @@ for(f=0;f<16;f++)
   memattr[f]=memattr[32+f]=0;
   memptr[f]=memptr[32+f]=mem+1024*count;
   count++;
-  if(count>=(zx80?4:8)) count=0;
+  if(count>=((rom4k && zx80)?4:8)) count=0;
   }
 
 /* RAM setup */
@@ -534,10 +521,10 @@ switch(ramsize)
   UDGEnabled = false;
 #endif
 
-if(zx80)
-  zx80hacks();
+if(rom4k && zx80)
+  rom4kPatches();
 else
-  zx81hacks();
+  rom8kPatches();
 }
 
 

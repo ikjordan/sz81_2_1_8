@@ -29,6 +29,7 @@ int vsync_toggle=0,vsync_lasttoggle=0;
 unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 int hsyncskip=0;
 int ulacharline=0;
+static int vsy=0;
 
 /* Error macros */
 #define ERROR_D() mem[16384] = 12;
@@ -154,7 +155,7 @@ int save_state_dialog_slots_populate(void) {
 				direntry->d_name[strlen(direntry->d_name) - 5] <= '9' &&
 				((*sdl_emulator.model == MODEL_ZX80 &&
 				sdl_filetype_casecmp(direntry->d_name, ".sso") == 0) ||
-				(*sdl_emulator.model == MODEL_ZX81 &&
+				(((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)) &&
 				sdl_filetype_casecmp(direntry->d_name, ".ssp") == 0))) {
 				save_state_dialog.slots[direntry->d_name
 					[strlen(direntry->d_name) - 5] - '1'] = TRUE;
@@ -332,7 +333,7 @@ int sdl_save_file(int parameter, int method) {
 		/* Form an appropriate filename */
 		if (*sdl_emulator.model == MODEL_ZX80) {
 			sprintf(filename, "savsta%i.sso", parameter + 1);
-		} else if (*sdl_emulator.model == MODEL_ZX81) {
+		} else if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)) {
 			sprintf(filename, "savsta%i.ssp", parameter + 1);
 		}
 		/* Append filename to fullpath */
@@ -428,7 +429,7 @@ int sdl_save_file(int parameter, int method) {
 				/* Write up to and including E_LINE */
 				if (*sdl_emulator.model == MODEL_ZX80) {
 					fwrite(mem + 0x4000, 1, (mem[0x400b] << 8 | mem[0x400a]) - 0x4000, fp);
-				} else if (*sdl_emulator.model == MODEL_ZX81) {
+				} else if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)) {
 					fwrite(mem + 0x4009, 1, (mem[0x4015] << 8 | mem[0x4014]) - 0x4009, fp);
 				}
 				/* Copy fullpath across to the load file dialog as
@@ -504,7 +505,7 @@ int sdl_load_file(int parameter, int method) {
 		if ((*sdl_emulator.model == MODEL_ZX80 &&
 			(sdl_filetype_casecmp(sdl_com_line.filename, ".o") == 0 ||
 			sdl_filetype_casecmp(sdl_com_line.filename, ".80") == 0)) ||
-			(*sdl_emulator.model == MODEL_ZX81 &&
+			(((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)) &&
 			(sdl_filetype_casecmp(sdl_com_line.filename, ".p") == 0 ||
 			sdl_filetype_casecmp(sdl_com_line.filename, ".81") == 0)) ||
             (sdl_filetype_casecmp(sdl_com_line.filename, ".p81") == 0)) {
@@ -585,7 +586,7 @@ int sdl_load_file(int parameter, int method) {
 		/* Form an appropriate filename */
 		if (*sdl_emulator.model == MODEL_ZX80) {
 			sprintf(filename, "savsta%i.sso", parameter + 1);
-		} else if (*sdl_emulator.model == MODEL_ZX81) {
+		} else if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)) {
 			sprintf(filename, "savsta%i.ssp", parameter + 1);
 		}
 		/* Append filename to fullpath */
@@ -777,7 +778,7 @@ int sdl_load_file(int parameter, int method) {
 							if (sdl_emulator.ramsize == 16) {
 								mem[sp + 2] = 0x22;
 							}
-						} else if (*sdl_emulator.model == MODEL_ZX81) {
+						} else if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K)){
 							/* Registers (common values) */
 							a = 0x0b; f = 0x00; b = 0x00; c = 0x02;
 							d = 0x40; e = 0x9b; h = 0x40; l = 0x99;
@@ -836,7 +837,7 @@ int sdl_load_file(int parameter, int method) {
                             {
                                 fread(mem + 0x4000, 1, ramsize * 1024, fp);
                             }
-                            else if (*sdl_emulator.model == MODEL_ZX81)
+                            else if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K))
                             {
                                 // Skip the file name if .p81
                                 if (sdl_filetype_casecmp(fullpath, ".p81") == 0)

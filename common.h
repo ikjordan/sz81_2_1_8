@@ -19,10 +19,8 @@
  * common.h - prototypes etc. for common.c.
  */
 
-/* And first, some display constants, as this seems the least
- * horrible place to put them.
- *
- * NB: *everything* horizontal here must be exactly divisible by 8.
+/*
+   Display constants
  */
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,7 +31,6 @@
 #define DISPLAY_N_START_X     46
 #define DISPLAY_N_START_Y     24
 #define DISPLAY_N_PIXEL_OFF   4
-#define DISPLAY_N_PADDING     1
 
 // Size for 576 line display (as for PAL TV)
 #define DISPLAY_P_WIDTH       360
@@ -41,7 +38,6 @@
 #define DISPLAY_P_START_X     24
 #define DISPLAY_P_START_Y     0
 #define DISPLAY_P_PIXEL_OFF   4
-#define DISPLAY_P_PADDING     1
 
 // Sizes for full (debug) display
 #define DISPLAY_F_WIDTH       416
@@ -49,7 +45,12 @@
 #define DISPLAY_F_START_X     0
 #define DISPLAY_F_START_Y     0
 #define DISPLAY_F_PIXEL_OFF   6
-#define DISPLAY_F_PADDING     1
+
+// Size of Padding between lines (in Bytes)
+#define DISPLAY_PADDING       1
+
+// ZX80 ROM OFFSET
+#define DISPLAY_ZX80_OFF      6
 
 typedef struct
 {
@@ -69,28 +70,35 @@ typedef struct
 
 extern Display_T disp;
 
+#ifdef LOAD_AND_SAVE
+
+/* ROM Patching */
+#define LOAD_START_4K       0x207       // POP DE           D1
+#define SAVE_START_4K       0x1b7       // POP DE           D1
+#define LOAD_SAVE_RET_4K    0x203       // POP HL           E1
+#define LOAD_SAVE_RSTRT_4K  0x283
+
+#define LOAD_START_8K       0x347       // RRC D            CB 10
+#define SAVE_START_8K       0x2ff       // LD DE,$12CB      11
+#define LOAD_SAVE_RET_8K    0x20A       // LD HL,$403B      21
+#define LOAD_SAVE_RSTRT_8K  0x207
+
 typedef struct
 {
     uint16_t start;
-    uint16_t ret;
     bool use_rom;
 } RomPatch_T;
 
 typedef struct
 {
-    uint16_t val1;
-    uint16_t val2;
-    uint16_t val3;
-} RomInPatch_T;
-
-typedef struct
-{
     RomPatch_T load;
     RomPatch_T save;
-    RomInPatch_T in;
+    uint16_t   retAddr;
+    uint16_t   rstrtAddr;
 } RomPatches_T;
 
 extern RomPatches_T rom_patches;
+#endif
 
 /* AY board types */
 #define AY_TYPE_NONE        0
@@ -120,6 +128,7 @@ extern int fakedispx,fakedispy;
 
 extern int refresh_screen;
 extern int zx80;
+extern int rom4k;
 extern int ignore_esc;
 
 /* Variables set from SDL menus */
@@ -140,13 +149,12 @@ extern bool romSave;
 
 extern int  vertTol;
 
-extern int  adjustStartX;
-extern int  adjustStartY;
-
 /* Chroma variables */
 extern int chromamode;
 extern unsigned char bordercolour;
 extern unsigned char bordercolournew;
+extern unsigned char fullcolour;
+extern unsigned char chroma_set;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);
@@ -171,6 +179,5 @@ extern void frame_pause(void);
 #ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
 extern void initdisplay(void);
-extern void adjustChroma(bool start);
 #endif
 

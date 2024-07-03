@@ -33,7 +33,6 @@ extern int ay_reg;
 extern void mainloop();
 #ifdef SZ81	/* Added by Thunor */
 extern void z80_reset(void);
-extern void adjustChroma(bool start);
 extern void setDisplayBoundaries(void);
 
 #endif

@@ -132,8 +132,10 @@ static int psync, sync_len;
 static int rowcounter = 0;
 static int hsync_counter = 0;
 static bool rowcounter_hold = false;
+bool running_rom = false;
 
-static unsigned long z80_op(void);
+extern int printer_inout(int is_out, int val);
+
 static inline void checkhsync(int tolchk);
 static inline void checkvsync(int tolchk);
 static inline void checksync(int inc);
@@ -145,9 +147,13 @@ static inline int nmi_interrupt(void);
 static void setEmulatedTV(bool fiftyHz, uint16_t vtol);
 static void zx80_loop(void);
 static void zx81_loop(void);
-extern int printer_inout(int is_out, int val);
 static void setRemainingDisplayBoundaries(void);
+static void adjustChroma(bool start);
+static unsigned long z80_op(void);
 
+#ifdef LOAD_AND_SAVE
+static void loadAndSaveROM(void);
+#endif
 
 static void setRemainingDisplayBoundaries(void)
 {
@@ -158,7 +164,7 @@ static void setRemainingDisplayBoundaries(void)
 }
 
 /* Ensure that chroma and pixels are byte aligned */
-void adjustChroma(bool start)
+static void adjustChroma(bool start)
 {
   if (start)
   {
@@ -181,14 +187,13 @@ void adjustChroma(bool start)
   }
   else
   {
-    adjustdisplay();
+    setDisplayBoundaries();
   }
 }
 
-void adjustdisplay(void)
+void setDisplayBoundaries(void)
 {
   adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
-
   if (centreScreen)
   {
     if (!(fullDisplay || fiveSevenSix))
@@ -197,12 +202,6 @@ void adjustdisplay(void)
       adjustStartY = (useNTSC) ? (DISPLAY_N_START_Y >> 1) : -(DISPLAY_N_START_Y >> 1);
     }
   }
-  setRemainingDisplayBoundaries(); 
-}
-
-void setDisplayBoundaries(void)
-{
-  adjustStartX = (zx80 && (!fullDisplay)) ? DISPLAY_ZX80_OFF : 0;
 
   setRemainingDisplayBoundaries();
 }
@@ -678,15 +677,13 @@ void zx80_loop(void)
   unsigned long tstore;
   unsigned char v;
   bool videodata;
-  
+
   int addr;
   int k;
   int kh;
   int kl;
 
-#ifdef SUPPORT_CHROMA
   unsigned char colour = 0;
-#endif
 
   while (1)
   {
@@ -735,13 +732,11 @@ void zx80_loop(void)
       }
       v = (op & 0x80) ? ~v : v;
 
-#ifdef SUPPORT_CHROMA
       if (chromamode)
       {
         colour = (chromamode & 0x10) ? fetch(pc) : fetch(0xc000 | ((((op & 0x80) >> 1) | (op & 0x3f)) << 3) | rowcounter);
         chroma_set = (colour ^ fullcolour) & 0xf0;
       }
-#endif
       /* The CPU sees a nop - so skip the Z80 emulation loop */
       pc++;
       radjust++;
@@ -751,17 +746,12 @@ void zx80_loop(void)
       // Plot data in shift register
       // Note subtract 6 as this leaves the smallest positive number
       // of bits to carry to next byte (2)
-#ifdef SUPPORT_CHROMA
       if ((v || chroma_set) &&
-#else
-      if (v &&
-#endif
           (RasterX >= startX) &&
           (RasterX < endX) &&
           (RasterY >= startY) &&
           (RasterY < endY))
       {
-#ifdef SUPPORT_CHROMA
         if (chromamode)
         {
           k = (dest + RasterX) >> 3;
@@ -771,7 +761,6 @@ void zx80_loop(void)
         }
         else
         {
-#endif
           k = dest + RasterX;
           kh = k >> 3;
           kl = k & 7;
@@ -785,9 +774,7 @@ void zx80_loop(void)
           {
             scrnbmp_new[kh] = v;
           }
-#ifdef SUPPORT_CHROMA
         }
-#endif
       }
     }
     else
@@ -890,7 +877,7 @@ void zx80_loop(void)
     {
       videoFlipFlop3Q ? vsync_lower() : vsync_raise();
       // ZX80 HSYNC sound - excluded if Chroma
-#ifdef OSS_SOUND_SUPPORT      
+#ifdef OSS_SOUND_SUPPORT
       if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
       {
           sound_beeper(videoFlipFlop3Q);
@@ -945,29 +932,34 @@ void zx80_loop(void)
     {
       if (sync_type == SYNCTYPEV)
       {
+#ifdef DEBUG_SYNC
         static bool found = false;
         static int count = 0;
+#endif
 
         // Frames synchonised after second vsyncs in range
         if (vsyncFound)
         {
+#ifdef DEBUG_SYNC
           if (!found)
           {
             printf("T %i\n", ++count);
             found = true;
           }
-
+#endif
           frameNotSync = !((RasterY >= VSYNC_TOLERANCEMIN) && (RasterY <= VSYNC_TOLERANCEMAX) &&
                           (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX));
           vsyncFound = !frameNotSync;
         }
         else
         {
+#ifdef DEBUG_SYNC
           if (found)
           {
             printf("F %i\n", count);
             found = false;
           }
+#endif
           vsyncFound = (scanlineCounter >= VSYNC_TOLERANCEMIN) && (scanlineCounter <= VSYNC_TOLERANCEMAX);
         }
         scanlineCounter = 0;
@@ -1057,8 +1049,13 @@ void zx80_loop(void)
 
           // Display the frame
           memset(scrnbmp_new, 0x00, disp.length);
-          if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
-          if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
+          if (chromamode && (bordercolournew != bordercolour))
+          {
+            bordercolour = bordercolournew;
+            fullcolour = (bordercolour << 4) + bordercolour;
+          }
+
+          if (chromamode) memset(scrnbmpc_new, fullcolour, disp.length);
 
           S_RasterX = 0;
           S_RasterY = 0;
@@ -1181,6 +1178,40 @@ void z80_reset(void)
   }
 }
 
+#ifdef LOAD_AND_SAVE
+static void loadAndSaveROM(void)
+{
+  if (!running_rom)
+  {
+    if (pc == rom_patches.load.start) // load
+    {
+      int run_rom = sdl_load_file(de, (de < 0x8000) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
+      if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
+      {
+        pc = rom_patches.rstrtAddr;
+        op = fetchm(pc);
+      }
+    }
+    else if (pc == rom_patches.save.start) // save
+    {
+      int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
+      if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
+      {
+        pc = rom_patches.rstrtAddr;
+        op = fetchm(pc);
+      }
+    }
+  }
+  else
+  {
+    if (pc == rom_patches.retAddr)
+    {
+      running_rom = false;
+    }
+  }
+}
+#endif
+
 static inline int z80_interrupt(void)
 {
   int tinc = 0;
@@ -1250,8 +1281,10 @@ static inline void checkvsync(int tolchk)
   if ((!tolchk && sync_len >= VSYNC_MINLEN && RasterY >= VSYNC_TOLERANCEMIN) ||
       (tolchk && RasterY >= VSYNC_TOLERANCEMAX))
   {
+#ifdef DEBUG_SYNC
     static bool found = false;
     static int count = 0;
+#endif
 
     if (sync_len>(int)tsmax)
     {
@@ -1268,28 +1301,36 @@ static inline void checkvsync(int tolchk)
       if (chromamode) memcpy(scrnbmpc, scrnbmpc_new, disp.length);
       if (vsyncFound)
       {
+#ifdef DEBUG_SYNC
         if (!found)
         {
           printf("T %i\n", ++count);
           found = true;
         }
-
+#endif
         frameNotSync = (RasterY >= VSYNC_TOLERANCEMAX);
       }
       else
       {
+#ifdef DEBUG_SYNC
         if (found)
         {
           printf("F %i\n", count);
           found = false;
         }
+#endif
         frameNotSync = true;
         vsyncFound = (RasterY < VSYNC_TOLERANCEMAX);
       }
     }
     memset(scrnbmp_new, 0x00, disp.length);
-    if (chromamode && (bordercolournew != bordercolour)) bordercolour = bordercolournew;
-    if (chromamode) memset(scrnbmpc_new, (bordercolour << 4) + bordercolour, disp.length);
+    if (chromamode && (bordercolournew != bordercolour))
+    {
+      bordercolour = bordercolournew;
+      fullcolour = (bordercolour << 4) + bordercolour;
+    }
+
+    if (chromamode) memset(scrnbmpc_new, fullcolour, disp.length);
     RasterY = 0;
 
     dest = disp.offset + (disp.stride_bit * adjustStartY) + adjustStartX;
@@ -1359,7 +1400,7 @@ unsigned int in(int h, int l)
 #ifdef OSS_SOUND_SUPPORT
     if ((sdl_sound.device == DEVICE_VSYNC) && frameNotSync)
     {
-        sound_beeper(0);
+      sound_beeper(0);
     }
 #endif
     LastInstruction = LASTINSTINFE;
@@ -1367,13 +1408,13 @@ unsigned int in(int h, int l)
     if (l == 0x7e)
       return 0; // for Lambda
 
-    if (rom_patches.load.use_rom && ((pc == rom_patches.in.val1) ||
-                                     (pc == rom_patches.in.val2) ||
-                                     (pc == rom_patches.in.val3) ))
+#ifdef LOAD_AND_SAVE
+    if (running_rom)
     {
-        data = useNTSC ? 0x40 : 0;
-        data |= loadPGetBit() ? 0x0 : 0x80; // Reversed as use xor below
+      data = useNTSC ? 0x40 : 0;
+      data |= loadPGetBit() ? 0x0 : 0x80; // Reversed as use xor below
     }
+#endif
 
     switch (h)
     {

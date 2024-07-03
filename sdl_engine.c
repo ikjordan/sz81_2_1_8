@@ -223,7 +223,7 @@ int sdl_com_line_process(int argc, char *argv[]) {
 			} else if (!strcmp (argv[count], "-n")) {
 				useNTSC = true;
 			} else if (!strcmp (argv[count], "-c")) {
-				centreScreen = true;
+				centreScreen = false;
 			} else if (!strcmp (argv[count], "-p")) {
 				fiveSevenSix = true;
 			} else if (!strcmp (argv[count], "-b")) {
@@ -269,7 +269,7 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -p  576 line display (360 pixels by 288)\n"
 					"  -b  full display (414 pixels by 313)\n"
 					"  -n  Emulate NTSC ZX81\n"
-					"  -c  Centre screen in display window\n"
+					"  -c  Do not centre screen in display window\n"
 					"  -l  Emulate real time load speeds\n"
 					"  -s  Emulate real time save speeds\n"
 					"  -r  Always use 8K ROM\n"

@@ -70,28 +70,35 @@ typedef struct
 
 extern Display_T disp;
 
+#ifdef LOAD_AND_SAVE
+
+/* ROM Patching */
+#define LOAD_START_4K       0x207       // POP DE           D1
+#define SAVE_START_4K       0x1b7       // POP DE           D1
+#define LOAD_SAVE_RET_4K    0x203       // POP HL           E1
+#define LOAD_SAVE_RSTRT_4K  0x283
+
+#define LOAD_START_8K       0x347       // RRC D            CB 10
+#define SAVE_START_8K       0x2ff       // LD DE,$12CB      11
+#define LOAD_SAVE_RET_8K    0x20A       // LD HL,$403B      21
+#define LOAD_SAVE_RSTRT_8K  0x207
+
 typedef struct
 {
     uint16_t start;
-    uint16_t retAddr;
     bool use_rom;
 } RomPatch_T;
 
 typedef struct
 {
-    uint16_t val1;
-    uint16_t val2;
-    uint16_t val3;
-} RomInPatch_T;
-
-typedef struct
-{
     RomPatch_T load;
     RomPatch_T save;
-    RomInPatch_T in;
+    uint16_t   retAddr;
+    uint16_t   rstrtAddr;
 } RomPatches_T;
 
 extern RomPatches_T rom_patches;
+#endif
 
 /* AY board types */
 #define AY_TYPE_NONE        0
@@ -142,13 +149,12 @@ extern bool romSave;
 
 extern int  vertTol;
 
-extern int  adjustStartX;
-extern int  adjustStartY;
-
 /* Chroma variables */
 extern int chromamode;
 extern unsigned char bordercolour;
 extern unsigned char bordercolournew;
+extern unsigned char fullcolour;
+extern unsigned char chroma_set;
 
 #ifndef SZ81	/* Added by Thunor */
 extern void sighandler(int a);
@@ -173,7 +179,5 @@ extern void frame_pause(void);
 #ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
 extern void initdisplay(void);
-extern void adjustdisplay(void);
-extern void adjustChroma(bool start);
 #endif
 

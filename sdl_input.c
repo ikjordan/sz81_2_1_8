@@ -1339,9 +1339,14 @@ void manage_cursor_input(void) {
 					key_repeat_manager(KRM_FUNC_REPEAT, &event, COMP_RUNOPTS0 * CURSOR_N);
 					hotspots[hs_currently_selected].flags &= ~HS_PROP_SELECTED;
 					if (hs_currently_selected == HS_RUNOPTS0_ZX80 ||
+					    hs_currently_selected == HS_RUNOPTS0_ZX80_8K ||
 						hs_currently_selected == HS_RUNOPTS0_ZX81) {
-						hotspots[hs_currently_selected + 8].flags |= HS_PROP_SELECTED;
-					} else if (hs_currently_selected == HS_RUNOPTS0_NEXT) {
+						hotspots[hs_currently_selected + 16].flags |= HS_PROP_SELECTED;
+					} else if (hs_currently_selected == HS_RUNOPTS0_NEXT ||
+					           hs_currently_selected == HS_RUNOPTS0_SAVE ||
+					           hs_currently_selected == HS_RUNOPTS0_EXIT ||
+					           hs_currently_selected == HS_RUNOPTS0_RAM_DN ||
+					           hs_currently_selected == HS_RUNOPTS0_UDG_128) {
 						hotspots[hs_currently_selected - 3].flags |= HS_PROP_SELECTED;
 					} else {
 						hotspots[hs_currently_selected - 2].flags |= HS_PROP_SELECTED;
@@ -1469,6 +1474,12 @@ void manage_cursor_input(void) {
 					} else if (hs_currently_selected == HS_RUNOPTS0_EXIT ||
 						hs_currently_selected == HS_RUNOPTS0_NEXT) {
 						hotspots[HS_RUNOPTS0_ZX81].flags |= HS_PROP_SELECTED;
+					} else if (hs_currently_selected == HS_RUNOPTS0_ZX80 ||
+							   hs_currently_selected == HS_RUNOPTS0_WRX_YES ||
+							   hs_currently_selected == HS_RUNOPTS0_UDG_NO ||
+							   hs_currently_selected == HS_RUNOPTS0_UDG_YES ||
+							   hs_currently_selected == HS_RUNOPTS0_UDG_128) {
+						hotspots[hs_currently_selected + 3].flags |= HS_PROP_SELECTED;
 					} else {
 						hotspots[hs_currently_selected + 2].flags |= HS_PROP_SELECTED;
 					}
@@ -1604,12 +1615,15 @@ void manage_cursor_input(void) {
 				} else if (get_active_component() == COMP_RUNOPTS0) {
 					key_repeat_manager(KRM_FUNC_REPEAT, &event, COMP_RUNOPTS0 * CURSOR_W);
 					hotspots[hs_currently_selected].flags &= ~HS_PROP_SELECTED;
-					if (hs_currently_selected == HS_RUNOPTS0_ZX80 ||
-						hs_currently_selected == HS_RUNOPTS0_RAM_DN ||
+					if (hs_currently_selected == HS_RUNOPTS0_RAM_DN ||
 						hs_currently_selected == HS_RUNOPTS0_FRAMESKIP_DN ||
+						hs_currently_selected == HS_RUNOPTS0_M1NOT_NO ||
+						hs_currently_selected == HS_RUNOPTS0_WRX_NO ||
 						hs_currently_selected == HS_RUNOPTS0_SPEED_DN) {
 						hotspots[hs_currently_selected + 1].flags |= HS_PROP_SELECTED;
-					} else if (hs_currently_selected == HS_RUNOPTS0_SAVE) {
+					} else if (hs_currently_selected == HS_RUNOPTS0_SAVE ||
+					           hs_currently_selected == HS_RUNOPTS0_ZX80 ||
+					           hs_currently_selected == HS_RUNOPTS0_UDG_NO) {
 						hotspots[hs_currently_selected + 2].flags |= HS_PROP_SELECTED;
 					} else {
 						hotspots[hs_currently_selected - 1].flags |= HS_PROP_SELECTED;
@@ -1730,12 +1744,15 @@ void manage_cursor_input(void) {
 				} else if (get_active_component() == COMP_RUNOPTS0) {
 					key_repeat_manager(KRM_FUNC_REPEAT, &event, COMP_RUNOPTS0 * CURSOR_E);
 					hotspots[hs_currently_selected].flags &= ~HS_PROP_SELECTED;
-					if (hs_currently_selected == HS_RUNOPTS0_ZX81 ||
-						hs_currently_selected == HS_RUNOPTS0_RAM_UP ||
+					if (hs_currently_selected == HS_RUNOPTS0_RAM_UP ||
 						hs_currently_selected == HS_RUNOPTS0_FRAMESKIP_UP ||
+						hs_currently_selected == HS_RUNOPTS0_M1NOT_YES ||
+						hs_currently_selected == HS_RUNOPTS0_WRX_YES ||
 						hs_currently_selected == HS_RUNOPTS0_SPEED_UP) {
 						hotspots[hs_currently_selected - 1].flags |= HS_PROP_SELECTED;
-					} else if (hs_currently_selected == HS_RUNOPTS0_NEXT) {
+					} else if (hs_currently_selected == HS_RUNOPTS0_NEXT ||
+					           hs_currently_selected == HS_RUNOPTS0_ZX81 ||
+					           hs_currently_selected == HS_RUNOPTS0_UDG_128) {
 						hotspots[hs_currently_selected - 2].flags |= HS_PROP_SELECTED;
 					} else {
 						hotspots[hs_currently_selected + 1].flags |= HS_PROP_SELECTED;
@@ -2111,14 +2128,17 @@ void manage_runopts_input(void) {
 			} else if (state == SDL_RELEASED) {
 				key_repeat_manager(KRM_FUNC_RELEASE, NULL, 0);
 			}
-		} else if (id == SDLK_HOME || id == SDLK_END) {
+		} else if (id == SDLK_HOME || id == SDLK_END || id == SDLK_0) {
 			if (runtime_options[0].state) {
 				/* Machine model */
 				if (state == SDL_PRESSED) {
 					if (id == SDLK_HOME) {
-						runopts_emulator_model = TRUE;
-					} else {
-						runopts_emulator_model = FALSE;
+						runopts_emulator_model = MODEL_ZX80;
+					} else if (id == SDLK_END) {
+						runopts_emulator_model = MODEL_ZX81;
+					}
+					else {
+						runopts_emulator_model = MODEL_ZX80_8K;
 					}
 				}
 			} else if (runtime_options[2].state) {

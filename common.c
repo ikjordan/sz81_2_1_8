@@ -125,7 +125,7 @@ int refresh_screen=1;
 
 /* > 0 if emulating ZX80 hardware rather than ZX81 */
 int zx80=0;
-int rom4k=1;
+int rom4k=0;
 
 int ignore_esc=0;
 
@@ -382,11 +382,8 @@ int ramsize;
 int count;
 int gap = 0;  // For 3K total RAM
 
-// Correct ROM id necessary
-if (zx80)
-{
-  zx80 = (rom4k) ? 1 : 2;
-}
+// Set ROM type
+rom4k = (zx80 == 1) ?  1 : 0;
 
 loadrom();
 #ifdef SZ81	/* Added by Thunor */

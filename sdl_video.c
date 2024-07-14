@@ -33,7 +33,7 @@ char *runtime_options_text0[24] = {
 	"",
 	"Machine Model:",
 	"",
-	"  (\x1 \x1) ZX80  (\x1 \x1) ZX81",
+	"  (\x1 \x1) ZX80 4K (\x1 \x1) ZX80 8K (\x1 \x1) ZX81",
 	"",
 	"RAM Size \x90\x2<\x2\x85 \x1  K\x90\x2>\x2\x85",
 	"",
@@ -64,7 +64,7 @@ char *runtime_options_text0[24] = {
 	"",
 	"Machine Model:",
 	"",
-	"  (\x1 \x1) ZX80  (\x1 \x1) ZX81",
+	"(\x1 \x1) ZX80 4K (\x1 \x1) ZX80 8K (\x1 \x1) ZX81",
 	"",
 	"RAM Size \x90\x2<\x2\x85 \x1  K \x90\x2>\x2\x85",
 	"",
@@ -971,65 +971,67 @@ void sdl_video_update(void) {
 						 * two \x1's embedded within the text. The first \x1 will
 						 * always draw a char which may be colour inverted, and the
 						 * second \x1 will revert the colour if it was inverted */
-						if (count >= 0 && count <= 3) {
-							if (count == 0 || count == 2) strcpy(text, "O");
-							if ((count <= 1 && runopts_emulator_model) || 
-								(count >= 2 && !runopts_emulator_model)) {
+						if (count >= 0 && count <= 5) {
+							if (count == 0 || count == 2 || count == 4)
+								strcpy(text, "O");
+							if (((count >= 0 && count <= 1) && (runopts_emulator_model == MODEL_ZX80)) ||
+								((count >= 2 && count <= 3) && (runopts_emulator_model == MODEL_ZX80_8K)) ||
+								((count >= 4 && count <= 5) && (runopts_emulator_model == MODEL_ZX81))) {
 								/* Invert the colours */
 								invertcolours = !invertcolours;
 							}
-						} else if (count == 4) {
+						} else if (count == 6) {
 							sprintf(text, "%2i", runopts_emulator_ramsize);
-						} else if (count >= 5 && count <= 8) {
-							if (count == 5 || count == 7) strcpy(text, "O");
-							if ((count <= 6 && !runopts_emulator_m1not) || 
-								(count >= 7 && runopts_emulator_m1not)) {
+						} else if (count >= 7 && count <= 10) {
+							if (count == 7 || count == 9) strcpy(text, "O");
+							if ((count <= 8 && !runopts_emulator_m1not) ||
+								(count >= 9 && runopts_emulator_m1not)) {
 								/* Invert the colours */
 								invertcolours = !invertcolours;
 							}
-						} else if (count == 9) {
+						} else if (count == 11) {
 							sprintf(text, "%1i", sdl_emulator.frameskip);
 					#ifdef ENABLE_EMULATION_SPEED_ADJUST
-						} else if (count == 10) {
+						} else if (count == 12) {
 							sprintf(text, "%4i", 2000 / runopts_emulator_speed);
-						} else if (count == 21) {
+						} else if (count == 23) {
 					#else
-						} else if (count == 20) {
+						} else if (count == 22) {
 					#endif
 							if (runopts_is_a_reset_scheduled())
 								strcpy(text, "* A reset is scheduled on save *");
 						}
 // WRX and UDG
 					#ifdef ENABLE_EMULATION_SPEED_ADJUST
-						if (count >= 11 && count<=20) {
-							if (count >= 11 && count <= 12 && runopts_emulator_wrx != HIRESWRX)
+						if (count >= 13 && count<=22) {
+							if (count >= 13 && count <= 14 && runopts_emulator_wrx != HIRESWRX)
 								invertcolours = !invertcolours;
-							if (count >= 13 && count <= 14 && runopts_emulator_wrx == HIRESWRX)
+							if (count >= 15 && count <= 16 && runopts_emulator_wrx == HIRESWRX)
 								invertcolours = !invertcolours;
-							if (count >= 15 && count <= 16 && runopts_emulator_chrgen==CHRGENSINCLAIR)
+							if (count >= 17 && count <= 18 && runopts_emulator_chrgen==CHRGENSINCLAIR)
 								invertcolours = !invertcolours;
-							if (count >= 17 && count <=18 && runopts_emulator_chrgen==CHRGENQS)
+							if (count >= 19 && count <=20 && runopts_emulator_chrgen==CHRGENQS)
 								invertcolours = !invertcolours;
-							if (count >= 19 && count <=20 && runopts_emulator_chrgen==CHRGENCHR16)
+							if (count >= 21 && count <=22 && runopts_emulator_chrgen==CHRGENCHR16)
 							{
 								invertcolours = !invertcolours;
 							}
-							if (count==11 || count==13 || count==15 || count==17 || count==19)
+							if (count==13 || count==15 || count==17 || count==19 || count==21)
 								strcpy(text, "O");
 						}
 					#else
-						if (count >= 10 && count<=19) {
-							if (count >= 10 && count <= 11 && runopts_emulator_wrx != HIRESWRX)
+						if (count >= 12 && count<=21) {
+							if (count >= 12 && count <= 13 && runopts_emulator_wrx != HIRESWRX)
 								invertcolours = !invertcolours;
-							if (count >= 12 && count <= 13 && runopts_emulator_wrx == HIRESWRX)
+							if (count >= 14 && count <= 15 && runopts_emulator_wrx == HIRESWRX)
 								invertcolours = !invertcolours;
-							if (count >= 14 && count <= 15 && runopts_emulator_chrgen==CHRGENSINCLAIR )
+							if (count >= 16 && count <= 17 && runopts_emulator_chrgen==CHRGENSINCLAIR )
 								invertcolours = !invertcolours;
-							if (count >= 16 && count <=17 && runopts_emulator_chrgen==CHRGENQS )
+							if (count >= 18 && count <=19 && runopts_emulator_chrgen==CHRGENQS )
 								invertcolours = !invertcolours;
-							if (count >= 18 && count <=19 && runopts_emulator_chrgen==CHRGENCHR16 )
+							if (count >= 20 && count <=21 && runopts_emulator_chrgen==CHRGENCHR16 )
 								invertcolours = !invertcolours;
-							if (count==10 || count==12 || count==14 || count==16 || count==18)
+							if (count==12 || count==14 || count==16 || count==18 || count==20)
 								strcpy(text, "O");
 						}
 					#endif

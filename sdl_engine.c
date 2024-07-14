@@ -232,8 +232,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				romLoad = true;
 			} else if (!strcmp (argv[count], "-s")) {
 				romSave = true;
-			} else if (!strcmp (argv[count], "-r")) {
-				rom4k = 0;
 			} else if (sscanf (argv[count], "-v%i",
 			    &vertTol) == 1 ) {
 				if ((vertTol > 150) || (vertTol < 1)) {
@@ -272,7 +270,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -c  Do not centre screen in display window\n"
 					"  -l  Emulate real time load speeds\n"
 					"  -s  Emulate real time save speeds\n"
-					"  -r  Always use 8K ROM\n"
 					"  -vTOL      e.g. -v100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;

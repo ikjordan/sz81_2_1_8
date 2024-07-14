@@ -383,7 +383,7 @@ int count;
 int gap = 0;  // For 3K total RAM
 
 // Set ROM type
-rom4k = (zx80 == 1) ?  1 : 0;
+rom4k = (zx80 == 1) ? 1 : 0;
 
 loadrom();
 #ifdef SZ81	/* Added by Thunor */

@@ -41,7 +41,6 @@ int memattr[64];
 int help=0;
 int sound=0;
 int sound_vsync=0,sound_ay=0,sound_ay_type=AY_TYPE_NONE;
-int vsync_visuals=1;
 int invert_screen=0;
 
 /* Variables set from SDL menus */

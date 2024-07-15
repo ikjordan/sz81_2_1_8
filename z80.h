@@ -27,7 +27,7 @@ extern int hsize,vsize;
 extern int interrupted;
 extern unsigned char* const scrnbmp;
 extern unsigned char* const scrnbmpc;
-extern unsigned long tstates,tsmax,frames;
+extern unsigned long frames;
 extern int ay_reg;
 
 extern void mainloop();

@@ -117,8 +117,9 @@ extern unsigned char *memptr[64];
 extern int memattr[64];
 extern unsigned char keyports[9];
 
-extern unsigned long tstates,tsmax;
-extern int help,sound,sound_vsync,sound_ay,sound_ay_type,vsync_visuals;
+extern unsigned long tstates;
+extern const unsigned long tsmax;
+extern int help,sound,sound_vsync,sound_ay,sound_ay_type;
 extern int invert_screen;
 
 extern int interrupted;

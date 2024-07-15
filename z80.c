@@ -29,51 +29,6 @@
 #include "sdl.h"
 #include "loadp.h"
 
-#define parity(a) (partable[a])
-
-unsigned char partable[256] = {
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
-    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4
-   };
-
-unsigned long tstates = 0, tsmax = 65000, frames = 0;
-static unsigned long ts=0;
-
-/* odd place to have this, but the display does work in an odd way :-) */
-static unsigned char scrnbmp_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT]; /* written */
-static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];     /* displayed */
-
-static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_PADDING;
-unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_PADDING;
-
-/* chroma */
-static unsigned char scrnbmpc_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];/* written */
-static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];	  /* displayed */
-
-static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_PADDING;
-unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_PADDING;
-
-static int vsx = 0;
-static int vsy = 0;
-int framewait = 0;
-int ay_reg = 0;
-int LastInstruction;
-bool frameNotSync = true;
-
 #define RUN_ROM 2
 
 #define LASTINSTNONE 0
@@ -96,43 +51,14 @@ bool frameNotSync = true;
 #define HMIN    8
 #define HMAX    32
 
-static const int HSYNC_TOLERANCEMIN = HSCAN - HTOL;
-static const int HSYNC_TOLERANCEMAX = HSCAN + HTOL;
-static int FRAME_SCAN = SCAN50;
+/* ZX80 specific state */
+#define SYNCNONE        0
+#define SYNCTYPEH       1
+#define SYNCTYPEV       2
 
-static const int HSYNC_MINLEN = HMIN;
-static const int HSYNC_MAXLEN = HMAX;
-static const int VSYNC_MINLEN = VMIN;
+#define parity(a) (partable[a])
 
-static int VSYNC_TOLERANCEMIN = SCAN50 - VTOL;
-static int VSYNC_TOLERANCEMAX = SCAN50 + VTOL;
-
-static const int HSYNC_START = 16;
-static const int HSYNC_END = 32;
-static const int HLEN = HLENGTH;
-static const int MAX_JMP = 8;
-
-static int RasterX = 0;
-static int RasterY = 0;
-static int dest;
-
-static int adjustStartX=0;
-static int adjustStartY=0;
-static int startX = 0;
-static int startY = 0;
-static int syncX = 0;
-static int endX = 0;
-static int endY = 0;
-
-static int nmi_pending, hsync_pending;
-static int NMI_generator;
-static int VSYNC_state, HSYNC_state, SYNC_signal;
-static int psync, sync_len;
-static int rowcounter = 0;
-static int hsync_counter = 0;
-static bool rowcounter_hold = false;
-static bool running_rom = false;
-
+/* Function declarations */
 extern int printer_inout(int is_out, int val);
 
 static void setRemainingDisplayBoundaries(void);
@@ -155,8 +81,43 @@ static void zx81_loop(void);
 static void loadAndSaveROM(void);
 #endif
 
-bool frameSync = false;
+/* state variables to be preserved in a snap shot*/
 
+/* ZX81 and display state */
+unsigned long tstates = 0, frames = 0;
+int framewait = 0;
+int vsx = 0;
+int vsy = 0;
+int RasterX = 0;
+int RasterY = 0;
+int S_RasterX = 0;
+int S_RasterY = 0;
+int dest;
+
+int adjustStartX=0;
+int adjustStartY=0;
+int startX = 0;
+int startY = 0;
+int syncX = 0;
+int endX = 0;
+int endY = 0;
+
+int nmi_pending, hsync_pending;
+int NMI_generator;
+int VSYNC_state, HSYNC_state, SYNC_signal;
+int psync, sync_len;
+int rowcounter = 0;
+int hsync_counter = 0;
+
+int VSYNC_TOLERANCEMIN = SCAN50 - VTOL;
+int VSYNC_TOLERANCEMAX = SCAN50 + VTOL;
+int FRAME_SCAN = SCAN50;
+
+bool rowcounter_hold = false;
+bool running_rom = false;
+bool frameNotSync = true;
+
+/* Z80 state */
 unsigned char a, f, b, c, d, e, h, l;
 unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
 unsigned short pc;
@@ -167,31 +128,73 @@ unsigned char intsample=0;
 unsigned char op;
 unsigned short m1cycles;
 
-/* ZX80 specific state */
-#define SYNCNONE        0
-#define SYNCTYPEH       1
-#define SYNCTYPEV       2
+/* ZX80 state variables */
+int scanlineCounter = 0;
+int videoFlipFlop1Q = 1;
+int videoFlipFlop2Q = 0;
+int videoFlipFlop3Q = 0;
+int videoFlipFlop3Clear = 0;
+int prevVideoFlipFlop3Q = 0;
+int lineClockCarryCounter = 0;
+int scanline_len = 0;
+int sync_type = SYNCNONE;
+int nosync_lines = 0;
+bool vsyncFound = false;
 
-static int S_RasterX = 0;
-static int S_RasterY = 0;
+/* variables that do not need to be preserved */
 
-static int scanlineCounter = 0;
+/* Display area */
+static unsigned char scrnbmp_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT]; /* written */
+static unsigned char scrnbmp_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];     /* displayed */
 
-static int videoFlipFlop1Q = 1;
-static int videoFlipFlop2Q = 0;
-static int videoFlipFlop3Q = 0;
-static int videoFlipFlop3Clear = 0;
-static int prevVideoFlipFlop3Q = 0;
+static unsigned char *const scrnbmp_new = scrnbmp_new_base + DISPLAY_PADDING;
+unsigned char *const scrnbmp = scrnbmp_base + DISPLAY_PADDING;
 
-static int lineClockCarryCounter = 0;
+/* chroma */
+static unsigned char scrnbmpc_new_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];/* written */
+static unsigned char scrnbmpc_base[((DISPLAY_F_WIDTH >> 3) + DISPLAY_PADDING) * DISPLAY_F_HEIGHT];	  /* displayed */
 
-static int scanline_len = 0;
-static int sync_type = SYNCNONE;
+static unsigned char *const scrnbmpc_new = scrnbmpc_new_base + DISPLAY_PADDING;
+unsigned char *const scrnbmpc = scrnbmpc_base + DISPLAY_PADDING;
 
-static int nosync_lines = 0;
-static bool vsyncFound = false;
+static unsigned long ts=0;
+int ay_reg = 0;
+int LastInstruction;
 
 /* Constants */
+static const unsigned char partable[256] = {
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    0, 4, 4, 0, 4, 0, 0, 4, 4, 0, 0, 4, 0, 4, 4, 0,
+    4, 0, 0, 4, 0, 4, 4, 0, 0, 4, 4, 0, 4, 0, 0, 4
+   };
+
+const unsigned long tsmax = 65000;
+
+static const int HSYNC_TOLERANCEMIN = HSCAN - HTOL;
+static const int HSYNC_TOLERANCEMAX = HSCAN + HTOL;
+
+static const int HSYNC_MINLEN = HMIN;
+static const int HSYNC_MAXLEN = HMAX;
+static const int VSYNC_MINLEN = VMIN;
+
+static const int HSYNC_START = 16;
+static const int HSYNC_END = 32;
+static const int HLEN = HLENGTH;
+static const int MAX_JMP = 8;
+
 static const int scanlinePixelLength = (HLENGTH << 1);
 static const int ZX80HSyncDuration = 20;
 

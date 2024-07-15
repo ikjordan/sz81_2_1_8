@@ -167,7 +167,7 @@ unsigned char intsample=0;
 unsigned char op;
 unsigned short m1cycles;
 
-/* ZX80 specific */
+/* ZX80 specific state */
 #define SYNCNONE        0
 #define SYNCTYPEH       1
 #define SYNCTYPEV       2
@@ -191,6 +191,7 @@ static int sync_type = SYNCNONE;
 static int nosync_lines = 0;
 static bool vsyncFound = false;
 
+/* Constants */
 static const int scanlinePixelLength = (HLENGTH << 1);
 static const int ZX80HSyncDuration = 20;
 

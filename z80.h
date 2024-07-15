@@ -31,11 +31,8 @@ extern unsigned long tstates,tsmax,frames;
 extern int ay_reg;
 
 extern void mainloop();
-#ifdef SZ81	/* Added by Thunor */
 extern void z80_reset(void);
 extern void setDisplayBoundaries(void);
-
-#endif
 
 #define fetch(x) (memptr[(unsigned short)(x)>>10][(x)&0x3FF])
 #define fetch2(x) ((fetch((x)+1)<<8)|fetch(x))

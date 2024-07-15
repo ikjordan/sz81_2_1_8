@@ -339,7 +339,7 @@ int sdl_com_line_process(int argc, char *argv[]) {
 void sdl_component_executive(void) {
 	static int active_components = 0;
 	static int ctrl_remapper_state = FALSE;
-	static int sdl_emulator_model = 0;
+	static int sdl_emulator_model = MODEL_ZX81;
 	static int sdl_emulator_ramsize = 16;
 	static int sdl_emulator_invert = 0;
 	static int sdl_emulator_m1not = FALSE;

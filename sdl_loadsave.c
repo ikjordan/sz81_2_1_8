@@ -1,5 +1,5 @@
 /* sz81 Copyright (C) 2007-2011 Thunor <thunorsif@hotmail.com>
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -22,6 +22,7 @@
 /* Defines */
 
 /* Now unused Variables */
+#if 0
 int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
 int liney=0;
 unsigned long linestart=0;
@@ -30,6 +31,7 @@ unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
 int hsyncskip=0;
 int ulacharline=0;
 static int vsy=0;
+#endif
 
 /* Error macros */
 #define ERROR_D() mem[16384] = 12;
@@ -61,7 +63,7 @@ extern char riscos_prog_dir[];
  * Load File Dialog Directory List Populate                                *
  ***************************************************************************/
 /* This is called from multiple places.
- * 
+ *
  * On entry: int refresh = TRUE if this is just a directory refresh
  *                         else FALSE */
 
@@ -128,7 +130,7 @@ int save_state_dialog_slots_populate(void) {
 	 * my Linux desktop computer I'm going to force the parent to lower-
 	 * case so that MazezaM.p will save as local/m/MazezaM.p and fingers-
 	 * crossed it'll universally work */
-	foldername[index = strlen(foldername)] = 
+	foldername[index = strlen(foldername)] =
 		tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
 	foldername[++index] = 0;
 	strcpy(parentname, foldername);
@@ -175,7 +177,7 @@ int save_state_dialog_slots_populate(void) {
  * Save File                                                               *
  ***************************************************************************/
 /* This function replaces z81's save_p.
- * 
+ *
  * On entry: if method = SAVE_FILE_METHOD_NAMEDSAVE then parameter holds
  *               the contents of the hl register pair which points to the
  *               area in the ZX81's memory that contains the program name.
@@ -229,7 +231,7 @@ int sdl_save_file(int parameter, int method) {
 			index = 0x4028;	/* Start of user program area */
 			vars = mem[0x4009] << 8 | mem[0x4008];	/* VARS */
 			while (index < vars) {
-				if (mem[index] == 0xfe && mem[index + 1] == 0xea && 
+				if (mem[index] == 0xfe && mem[index + 1] == 0xea &&
 					mem[index + 2] == 0x01) {	/* REM SAVE " */
 					idxend = index = index + 3;	/* Position on first char */
 					while (mem[idxend] != 0x01 && mem[idxend] < 0x80 &&
@@ -350,12 +352,12 @@ int sdl_save_file(int parameter, int method) {
 				* signal_int_flag is being updated by the SDL timer
 				* likely in another thread so no point in saving that.
 				* refresh_screen I'm forcing to 1 anyway.
-				* 
+				*
 				* To make these files platform independent I'm saving
 				* and restoring everything by the byte in little-endian
 				* format. These are the integer sizes on my development
 				* computer (GNU/Linux 32bit):
-				* 
+				*
 				* sizeof(long) = 4 bytes
 				* sizeof(int) = 4 bytes
 				* sizeof(short) = 2 bytes
@@ -367,39 +369,41 @@ int sdl_save_file(int parameter, int method) {
 			/* Variables from the top of z80.c */
 			fwrite_unsigned_long_little_endian(&tstates, fp);
 			fwrite_unsigned_long_little_endian(&frames, fp);
+#if 0
 			fwrite_int_little_endian(&liney, fp);
 			fwrite_int_little_endian(&vsy, fp);
 			fwrite_unsigned_long_little_endian(&linestart, fp);
 			fwrite_int_little_endian(&vsync_toggle, fp);
 			fwrite_int_little_endian(&vsync_lasttoggle, fp);
-
+#endif
 			/* Variables liberated from the top of mainloop */
 			fwrite(&a, 1, 1, fp);	/* unsigned char */
 			fwrite(&f, 1, 1, fp);
-			fwrite(&b, 1, 1, fp); 
+			fwrite(&b, 1, 1, fp);
 			fwrite(&c, 1, 1, fp);
-			fwrite(&d, 1, 1, fp); 
+			fwrite(&d, 1, 1, fp);
 			fwrite(&e, 1, 1, fp);
-			fwrite(&h, 1, 1, fp); 
+			fwrite(&h, 1, 1, fp);
 			fwrite(&l, 1, 1, fp);
 			fwrite(&r, 1, 1, fp);
-			fwrite(&a1, 1, 1, fp); 
+			fwrite(&a1, 1, 1, fp);
 			fwrite(&f1, 1, 1, fp);
-			fwrite(&b1, 1, 1, fp); 
+			fwrite(&b1, 1, 1, fp);
 			fwrite(&c1, 1, 1, fp);
-			fwrite(&d1, 1, 1, fp); 
+			fwrite(&d1, 1, 1, fp);
 			fwrite(&e1, 1, 1, fp);
-			fwrite(&h1, 1, 1, fp); 
+			fwrite(&h1, 1, 1, fp);
 			fwrite(&l1, 1, 1, fp);
-			fwrite(&i, 1, 1, fp); 
-			fwrite(&iff1, 1, 1, fp); 
+			fwrite(&i, 1, 1, fp);
+			fwrite(&iff1, 1, 1, fp);
 			fwrite(&iff2, 1, 1, fp);
-			fwrite(&im, 1, 1, fp); 
+			fwrite(&im, 1, 1, fp);
 			fwrite_unsigned_short_little_endian(&pc, fp);
 			fwrite_unsigned_short_little_endian(&ix, fp);
 			fwrite_unsigned_short_little_endian(&iy, fp);
 			fwrite_unsigned_short_little_endian(&sp, fp);
 			fwrite(&radjust, 1, 1, fp);	/* unsigned char */
+#if 0
 			fwrite_unsigned_long_little_endian(&nextlinetime, fp);
 			fwrite_unsigned_long_little_endian(&linegap, fp);
 			fwrite_unsigned_long_little_endian(&lastvsyncpend, fp);
@@ -417,7 +421,7 @@ int sdl_save_file(int parameter, int method) {
 
 			/* Variables from the top of common.c */
 			fwrite_int_little_endian(&interrupted, fp);
-
+#endif
 			/* 65654/0x10076 bytes to here for 2.1.7 */
 
 		} else {
@@ -473,7 +477,7 @@ int sdl_save_file(int parameter, int method) {
  * Load File                                                               *
  ***************************************************************************/
 /* This function replaces z81's load_p.
- * 
+ *
  * On entry: if method = LOAD_FILE_METHOD_NAMEDLOAD then parameter holds
  *               the contents of the hl register pair which points to the
  *               area in the ZX81's memory that contains the program name.
@@ -577,7 +581,7 @@ int sdl_load_file(int parameter, int method) {
 		strcatdelimiter(fullpath);
 		strcat(fullpath, LOCAL_SAVSTA_DIR);
 		strcatdelimiter(fullpath);
-		fullpath[index = strlen(fullpath)] = 
+		fullpath[index = strlen(fullpath)] =
 			tolower(file_dialog_basename(load_file_dialog.loaded)[0]);
 		fullpath[++index] = 0;
 		strcatdelimiter(fullpath);
@@ -665,12 +669,12 @@ int sdl_load_file(int parameter, int method) {
 					 * signal_int_flag is being updated by the SDL timer
 					 * likely in another thread so no point in saving that.
 					 * refresh_screen I'm forcing to 1 anyway.
-					 * 
+					 *
 					 * To make these files platform independent I'm saving
 					 * and restoring everything by the byte in little-endian
 					 * format. These are the integer sizes on my development
 					 * computer (GNU/Linux 32bit):
-					 * 
+					 *
 					 * sizeof(long) = 4 bytes
 					 * sizeof(int) = 4 bytes
 					 * sizeof(short) = 2 bytes
@@ -679,6 +683,7 @@ int sdl_load_file(int parameter, int method) {
 					/* The entire contents of memory */
 					fread(mem, 1, 64 * 1024, fp);	/* unsigned char */
 
+#if 0
 					/* Variables from the top of z80.c */
 					fread_unsigned_long_little_endian(&tstates, fp);
 					fread_unsigned_long_little_endian(&frames, fp);
@@ -687,34 +692,35 @@ int sdl_load_file(int parameter, int method) {
 					fread_unsigned_long_little_endian(&linestart, fp);
 					fread_int_little_endian(&vsync_toggle, fp);
 					fread_int_little_endian(&vsync_lasttoggle, fp);
-
+#endif
 					/* Variables liberated from the top of mainloop */
 					fread(&a, 1, 1, fp);	/* unsigned char */
 					fread(&f, 1, 1, fp);
-					fread(&b, 1, 1, fp); 
+					fread(&b, 1, 1, fp);
 					fread(&c, 1, 1, fp);
-					fread(&d, 1, 1, fp); 
+					fread(&d, 1, 1, fp);
 					fread(&e, 1, 1, fp);
-					fread(&h, 1, 1, fp); 
+					fread(&h, 1, 1, fp);
 					fread(&l, 1, 1, fp);
 					fread(&r, 1, 1, fp);
-					fread(&a1, 1, 1, fp); 
+					fread(&a1, 1, 1, fp);
 					fread(&f1, 1, 1, fp);
-					fread(&b1, 1, 1, fp); 
+					fread(&b1, 1, 1, fp);
 					fread(&c1, 1, 1, fp);
-					fread(&d1, 1, 1, fp); 
+					fread(&d1, 1, 1, fp);
 					fread(&e1, 1, 1, fp);
-					fread(&h1, 1, 1, fp); 
+					fread(&h1, 1, 1, fp);
 					fread(&l1, 1, 1, fp);
-					fread(&i, 1, 1, fp); 
-					fread(&iff1, 1, 1, fp); 
+					fread(&i, 1, 1, fp);
+					fread(&iff1, 1, 1, fp);
 					fread(&iff2, 1, 1, fp);
-					fread(&im, 1, 1, fp); 
+					fread(&im, 1, 1, fp);
 					fread_unsigned_short_little_endian(&pc, fp);
 					fread_unsigned_short_little_endian(&ix, fp);
 					fread_unsigned_short_little_endian(&iy, fp);
 					fread_unsigned_short_little_endian(&sp, fp);
 					fread(&radjust, 1, 1, fp);	/* unsigned char */
+#if 0
 					fread_unsigned_long_little_endian(&nextlinetime, fp);
 					fread_unsigned_long_little_endian(&linegap, fp);
 					fread_unsigned_long_little_endian(&lastvsyncpend, fp);
@@ -729,10 +735,12 @@ int sdl_load_file(int parameter, int method) {
 					fread_int_little_endian(&vsynclen, fp);
 					fread_int_little_endian(&hsyncskip, fp);
 					fread_int_little_endian(&framewait, fp);
-
+#endif
 					/* Variables from the top of common.c */
 					fread_int_little_endian(&interrupted, fp);
 
+					// Now restore memory partition and offsets
+					setDisplayBoundaries();
 					/* 65654/0x10076 bytes to here for 2.1.7 */
 
 				} else {
@@ -743,13 +751,13 @@ int sdl_load_file(int parameter, int method) {
 						 * line 189, change #if 0 to #if 1 and recompile. Run
 						 * the emulator, load a suitably sized program by typing
 						 * LOAD or LOAD "something" and view the console output.
-						 * 
+						 *
 						 * It's likely I've been a bit too thorough recording these
 						 * values because I know from looking at the ZX81 ROM that
 						 * DE points to the program name in memory which would get
 						 * overwritten on LOAD and make it redundant, and HL and A
 						 * are modified soon after anyway, but there's no harm done.
-						 * 
+						 *
 						 * Note that the ZX81's RAMTOP won't be greater than 0x8000
 						 * unless POKEd by the user.
 						 */
@@ -961,7 +969,7 @@ int sdl_load_file(int parameter, int method) {
  * exist.
  * The point of this function is to make it easier to change the delimiter
  * character for other platforms. See also #define DIR_DELIMITER_CHAR.
- * 
+ *
  * On entry: char *toappendto = the string to append to
  *  On exit: toappendto will have had a delimiter appended if required  */
 
@@ -986,7 +994,7 @@ void strcatdelimiter(char *toappendto) {
  * user written so it is not expecting a trailing directory delimiter.
  * getcwd for example will not add a trailing delimiter unless the path
  * is at the root, therefore that's how it will be interpreted here.
- * 
+ *
  * On entry: char *dir = the path to extract the basename from
  *  On exit: returns a pointer to a string containing the extracted basename */
 
@@ -998,7 +1006,7 @@ char *file_dialog_basename(char *dir) {
 
 	if ((index = strlen(dir))) {
 		/* Move leftwards up to a delimiter, root or nothing */
-		while (index >= 1 && 
+		while (index >= 1 &&
 			basename[index - 1] != DIR_DELIMITER_CHAR
 		#if defined(__amigaos4__)
 			&& basename[index - 1] != ':'
@@ -1025,11 +1033,11 @@ char *file_dialog_basename(char *dir) {
  * string which could be a relative subdirectory or parent directory "..".
  * The source directory can be wrapped within brackets which will be removed
  * if found e.g. "(sz81)", "sz81", "(..)", "..".
- * 
+ *
  * This function is not expecting dir to have a trailing directory delimiter
  * unless it represents *nix root. C functions don't add these and neither
  * do sz81 functions so I'm choosing not to handle them.
- * 
+ *
  * On entry: char *dir = the directory string to update
  *           char *direntry = the relative directory to change to
  *  On exit: char *dir will be updated */
@@ -1051,7 +1059,7 @@ void file_dialog_cd(char *dir, char *direntry) {
 		/* Go back to the parent directory */
 		if ((index = strlen(dir))) {
 			/* Truncate leftwards up to a delimiter, root or nothing */
-			while (index >= 1 && 
+			while (index >= 1 &&
 				dir[index - 1] != DIR_DELIMITER_CHAR
 			#if defined(__amigaos4__) || defined(_WIN32)
 				&& dir[index - 1] != ':'
@@ -1059,7 +1067,7 @@ void file_dialog_cd(char *dir, char *direntry) {
 				) dir[--index] = 0;
 
 			/* Do we need to cut the directory delimiter? */
-			if (index >= 2 && 
+			if (index >= 2 &&
 				dir[index - 1] == DIR_DELIMITER_CHAR
 			#if defined(_WIN32)
 				&& dir[index - 2] != ':'
@@ -1080,15 +1088,15 @@ void file_dialog_cd(char *dir, char *direntry) {
 /* This function will record the current directory, change to the requested
  * directory, create a sorted list of its contents and then change back to
  * the original directory.
- * 
+ *
  * Directory names are wrapped within brackets and a parent directory
  * "(..)" is forced to always be present (dirlist will never return NULL).
- * 
+ *
  * dirlist will return a pointer to the dynamically allocated memory
  * containing the list and should be freed before program exit.
  * When calling this function, any existing list created from a previous
  * call will be freed automatically so the caller need not do this.
- * 
+ *
  * On entry: char *dir = a string containing the directory to list
  *           int filetypes = an OR'd combination of file types to list
  *  On exit: char **dirlist will point to the dynamically allocated
@@ -1181,7 +1189,7 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 
 					/* Expand the list by the necessary size (if the list
 					 * is currently NULL then realloc acts like malloc) */
-					if ((realloclist = realloc(*dirlist, 
+					if ((realloclist = realloc(*dirlist,
 						*dirlist_sizeof * (offset + 1))) == NULL) {
 						fprintf(stderr, "%s: Cannot expand list\n", __func__);
 					} else {
@@ -1215,7 +1223,7 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 
 	/* If ".." wasn't found then add it to the end of the list */
 	if (!parentfound) {
-		if ((realloclist = realloc(*dirlist, 
+		if ((realloclist = realloc(*dirlist,
 			*dirlist_sizeof * (offset + 1))) == NULL) {
 			fprintf(stderr, "%s: Cannot expand list\n", __func__);
 		} else {
@@ -1270,7 +1278,7 @@ void dirlist_populate(char *dir, char **dirlist, int *dirlist_sizeof,
 int sdl_filetype_casecmp(char *filename, char *filetype) {
 	int retval = FALSE;
 
-	if (filename == NULL || filetype == NULL || strlen(filename) < strlen(filetype) || 
+	if (filename == NULL || filetype == NULL || strlen(filename) < strlen(filetype) ||
 		strcasecmp(filename + strlen(filename) - strlen(filetype), filetype) != 0)
 		retval = TRUE;
 
@@ -1282,7 +1290,7 @@ int sdl_filetype_casecmp(char *filename, char *filetype) {
  ***************************************************************************/
 /* This will convert a string into a new uppercase string (the original
  * remains unchanged).
- * 
+ *
  * On entry: char *original = the string to convert
  *  On exit: returns a pointer to the converted string  */
 
@@ -1303,7 +1311,7 @@ char *strtoupper(char *original) {
 /* This will translate a ZX81 string of characters into an ASCII equivalent.
  * All alphabetical characters are converted to lowercase.
  * Those characters that won't translate are replaced with underscores.
- * 
+ *
  * On entry: int memaddr = the string's address within mem[]
  *  On exit: returns a pointer to the translated string */
 
@@ -1362,7 +1370,7 @@ bool parseNumber(const char* input,
 /* This will translate a ZX80 string of characters into an ASCII equivalent.
  * All alphabetical characters are converted to lowercase.
  * Those characters that won't translate are replaced with underscores.
- * 
+ *
  * On entry: int memaddr = the string's address within mem[]
  *  On exit: returns a pointer to the translated string */
 
@@ -1477,17 +1485,17 @@ void fread_unsigned_long_little_endian(unsigned long *target, FILE *fp) {
  * Get Filename Next Highest                                               *
  ***************************************************************************/
 /* This will scan a directory for files matching the pattern in format.
- * 
- * Examples would be "prtout%4d" to match "prtout0001.pbm" and 
+ *
+ * Examples would be "prtout%4d" to match "prtout0001.pbm" and
  * "zx80prog%4d" to match "zx80prog0001.o".
- * 
- * WARNING: Don't do what I initially did and use %i instead of %d else 
+ *
+ * WARNING: Don't do what I initially did and use %i instead of %d else
  * you won't get past 0008 and it'll take you a while to understand why!
- * 
+ *
  * Search out the sscanf or scanf documentation to fully understand format
  * and PLEASE NOTE that sscanf here is expecting max one value to read and
  * store, so passing "%c%i" will segfault (use "%*c%i" - see scanf docs).
- * 
+ *
  * On entry: char *dir points to the directory to scan
  *           char *format points to the pattern to match
  *  On exit: returns 1 to 2147483647 on success

@@ -22,6 +22,8 @@
 /*
    Display constants
  */
+#ifndef _COMMON_H_
+#define _COMMON_H_
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -118,15 +120,10 @@ extern int memattr[64];
 extern unsigned char keyports[9];
 
 extern unsigned long tstates;
-extern const unsigned long tsmax;
 extern int help,sound,sound_vsync,sound_ay,sound_ay_type;
 extern int invert_screen;
 
 extern int interrupted;
-extern int taguladisp;
-extern int autoload;
-extern int scrn_freq;
-extern int fakedispx,fakedispy;
 
 extern int refresh_screen;
 extern int zx80;
@@ -158,6 +155,9 @@ extern unsigned char bordercolournew;
 extern unsigned char fullcolour;
 extern unsigned char chroma_set;
 
+/* Constants*/
+extern const unsigned long tsmax;
+
 extern void initmem();
 extern void zxpopen(void);
 extern void zxpclose(void);
@@ -169,3 +169,5 @@ extern void do_interrupt();
 extern void frame_pause(void);
 extern void common_reset(void);
 extern void initdisplay(void);
+
+#endif

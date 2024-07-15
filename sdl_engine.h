@@ -34,6 +34,10 @@
 	#include "amiga.h" /* Amiga-specifics */
 #endif
 
+#include "common.h"
+#include "sound.h"
+#include "z80.h"
+
 /* Defines */
 /* Uncomment all of these to view the inner workings. Then monitor
  * the console output and press alt+r to cycle the resolutions.
@@ -68,6 +72,7 @@
 #define COMP_DIALOG 1024
 #define COMP_ALL ((COMP_DIALOG - 1) | COMP_DIALOG)
 
+#if 0
 /* Emulator variables I require access to */
 /* Variables from the top of z80.c */
 extern unsigned long tstates, frames;
@@ -88,6 +93,7 @@ extern int hsyncskip;
 extern int framewait;
 /* Variables from the top of common.c */
 extern unsigned char mem[];
+#endif
 extern int sound, sound_vsync;
 extern int sound_ay, sound_ay_type;
 extern int signal_int_flag;
@@ -113,10 +119,6 @@ struct runtimeoptions runtime_options[MAX_RUNTIME_OPTIONS];
 extern void initmem(void);
 extern void frame_pause(void);
 extern void do_interrupt(void);
-#ifdef OSS_SOUND_SUPPORT
-	extern void sound_ay_setvol(void);
-	extern void sound_framesiz_init(void);
-#endif
 
 /* Function prototypes */
 int get_active_component(void);

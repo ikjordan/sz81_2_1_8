@@ -63,7 +63,6 @@ int vertTol = 30;
 int signal_int_flag=0;
 volatile int exit_program_flag=0;
 int interrupted=0;
-int scrn_freq=2;
 
 /* for the printer */
 /* This solves an issue for us with zxpopen. Originally the printer file
@@ -102,7 +101,6 @@ int rom4k=0;
 int ignore_esc=0;
 
 int autolist=0;
-int autoload=0;
 char autoload_filename[1024];
 int chromamode=0;
 unsigned char bordercolour=0x0f;

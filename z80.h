@@ -16,6 +16,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+#ifndef _Z80_H_
+#define _Z80_H_
 #define Z80_quit  1
 #define Z80_NMI   2
 #define Z80_reset 3
@@ -29,6 +31,56 @@ extern unsigned char* const scrnbmp;
 extern unsigned char* const scrnbmpc;
 extern unsigned long frames;
 extern int ay_reg;
+
+/* variables to be stored in a save state */
+/* ZX81 and display state */
+extern unsigned long tstates, frames;
+extern int framewait;
+extern int vsx;
+extern int vsy;
+extern int RasterX;
+extern int RasterY;
+extern int S_RasterX;
+extern int S_RasterY;
+
+extern int nmi_pending, hsync_pending;
+extern int NMI_generator;
+extern int VSYNC_state, HSYNC_state, SYNC_signal;
+extern int psync, sync_len;
+extern int rowcounter;
+extern int hsync_counter;
+
+extern int VSYNC_TOLERANCEMIN;
+extern int VSYNC_TOLERANCEMAX;
+extern int FRAME_SCAN;
+
+extern bool rowcounter_hold;
+extern bool running_rom;
+extern bool frameNotSync;
+
+/* Z80 state */
+extern unsigned char a, f, b, c, d, e, h, l;
+extern unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
+extern unsigned short pc;
+extern unsigned short ix, iy, sp;
+extern unsigned char radjust;
+extern unsigned char ixoriy, new_ixoriy;
+extern unsigned char intsample;
+extern unsigned char op;
+extern unsigned short m1cycles;
+
+/* ZX80 state variables */
+extern int scanlineCounter;
+extern int videoFlipFlop1Q;
+extern int videoFlipFlop2Q;
+extern int videoFlipFlop3Q;
+extern int videoFlipFlop3Clear;
+extern int prevVideoFlipFlop3Q;
+extern int lineClockCarryCounter;
+extern int scanline_len;
+extern int sync_type;
+extern int nosync_lines;
+extern bool vsyncFound;
 
 extern void mainloop();
 extern void z80_reset(void);
@@ -108,4 +160,6 @@ static void inline store2func(unsigned short ad,unsigned char b1,unsigned char b
 #define bc ((b<<8)|c)
 #define de ((d<<8)|e)
 #define hl ((h<<8)|l)
+
+#endif
 

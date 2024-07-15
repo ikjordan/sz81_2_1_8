@@ -92,15 +92,6 @@ int RasterX = 0;
 int RasterY = 0;
 int S_RasterX = 0;
 int S_RasterY = 0;
-int dest;
-
-int adjustStartX=0;
-int adjustStartY=0;
-int startX = 0;
-int startY = 0;
-int syncX = 0;
-int endX = 0;
-int endY = 0;
 
 int nmi_pending, hsync_pending;
 int NMI_generator;
@@ -140,6 +131,16 @@ int scanline_len = 0;
 int sync_type = SYNCNONE;
 int nosync_lines = 0;
 bool vsyncFound = false;
+
+/* Variables to be recreated after loading state through call to setDisplayBoundaries() */
+static int dest;
+static int adjustStartX=0;
+static int adjustStartY=0;
+static int startX = 0;
+static int startY = 0;
+static int syncX = 0;
+static int endX = 0;
+static int endY = 0;
 
 /* variables that do not need to be preserved */
 

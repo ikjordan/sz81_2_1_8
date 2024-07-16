@@ -1398,7 +1398,7 @@ unsigned int in(int h, int l)
   default:
     break;
   }
-  return 0;
+  return 0xff;
 }
 
 unsigned int out(int h, int l, int a)

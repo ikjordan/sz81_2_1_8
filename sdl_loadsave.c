@@ -19,19 +19,6 @@
 #include "sdl_engine.h"
 #include "common.h"
 #include "loadp.h"
-/* Defines */
-
-/* Now unused Variables */
-#if 0
-int nmipend=0,intpend=0,vsyncpend=0,vsynclen=0;
-int liney=0;
-unsigned long linestart=0;
-int vsync_toggle=0,vsync_lasttoggle=0;
-unsigned long nextlinetime=0,linegap=207,lastvsyncpend=0;
-int hsyncskip=0;
-int ulacharline=0;
-static int vsy=0;
-#endif
 
 /* Error macros */
 #define ERROR_D() mem[16384] = 12;
@@ -200,7 +187,7 @@ int sdl_save_file(int parameter, int method) {
 	int start = 0;
 	int length = 0;
 	bool found = false;
-	bool zx80 = false;
+	bool zx80_4k = false;
     bool repeat = false;
 
 	if ((method == SAVE_FILE_METHOD_NAMEDSAVE) ||
@@ -214,7 +201,7 @@ int sdl_save_file(int parameter, int method) {
 			strcpy(filename, strzx81_to_ascii(parameter));
 		}
 		else if (method == SAVE_FILE_METHOD_UNNAMEDSAVE) {
-			zx80 = true;
+			zx80_4k = true;
 			/* Build a path from the last entered directory */
 			strcpy(fullpath, load_file_dialog.dir);
 			/* Add a directory delimiter if required */
@@ -290,7 +277,7 @@ int sdl_save_file(int parameter, int method) {
 		if (!retval) {
 			if (!found) {
 				/* Add a file extension if one hasn't already been affixed and it is not a memory save*/
-				if (zx80) {
+				if (zx80_4k) {
 					/* Add a file extension if one hasn't already been affixed */
 					if (sdl_filetype_casecmp(filename, ".o") != 0 &&
 						sdl_filetype_casecmp(filename, ".80") != 0)
@@ -365,18 +352,37 @@ int sdl_save_file(int parameter, int method) {
 
 			/* The entire contents of memory */
 			fwrite(mem, 1, 64 * 1024, fp);	/* unsigned char */
+            fwrite_int_little_endian(&sdl_emulator.ramsize, fp);
 
-			/* Variables from the top of z80.c */
-			fwrite_unsigned_long_little_endian(&tstates, fp);
+			/* Variables from z80.h */
 			fwrite_unsigned_long_little_endian(&frames, fp);
-#if 0
-			fwrite_int_little_endian(&liney, fp);
+			fwrite_int_little_endian(&framewait, fp);
+			fwrite_int_little_endian(&vsx, fp);
 			fwrite_int_little_endian(&vsy, fp);
-			fwrite_unsigned_long_little_endian(&linestart, fp);
-			fwrite_int_little_endian(&vsync_toggle, fp);
-			fwrite_int_little_endian(&vsync_lasttoggle, fp);
-#endif
-			/* Variables liberated from the top of mainloop */
+			fwrite_int_little_endian(&RasterX, fp);
+			fwrite_int_little_endian(&RasterY, fp);
+			fwrite_int_little_endian(&S_RasterX, fp);
+			fwrite_int_little_endian(&S_RasterY, fp);
+
+			fwrite_int_little_endian(&nmi_pending, fp);
+			fwrite_int_little_endian(&hsync_pending, fp);
+			fwrite_int_little_endian(&NMI_generator, fp);
+			fwrite_int_little_endian(&VSYNC_state, fp);
+			fwrite_int_little_endian(&HSYNC_state, fp);
+			fwrite_int_little_endian(&SYNC_signal, fp);
+			fwrite_int_little_endian(&psync, fp);
+			fwrite_int_little_endian(&sync_len, fp);
+			fwrite_int_little_endian(&rowcounter, fp);
+			fwrite_int_little_endian(&hsync_counter, fp);
+			fwrite_int_little_endian(&VSYNC_TOLERANCEMIN, fp);
+			fwrite_int_little_endian(&VSYNC_TOLERANCEMAX, fp);
+			fwrite_int_little_endian(&FRAME_SCAN, fp);
+
+            fwrite(&rowcounter_hold, 1, 1, fp);
+            fwrite(&running_rom, 1, 1, fp);
+            fwrite(&frameNotSync, 1, 1, fp);
+
+			/* Z80 Registers */
 			fwrite(&a, 1, 1, fp);	/* unsigned char */
 			fwrite(&f, 1, 1, fp);
 			fwrite(&b, 1, 1, fp);
@@ -402,27 +408,41 @@ int sdl_save_file(int parameter, int method) {
 			fwrite_unsigned_short_little_endian(&ix, fp);
 			fwrite_unsigned_short_little_endian(&iy, fp);
 			fwrite_unsigned_short_little_endian(&sp, fp);
+			fwrite_unsigned_short_little_endian(&m1cycles, fp);
 			fwrite(&radjust, 1, 1, fp);	/* unsigned char */
-#if 0
-			fwrite_unsigned_long_little_endian(&nextlinetime, fp);
-			fwrite_unsigned_long_little_endian(&linegap, fp);
-			fwrite_unsigned_long_little_endian(&lastvsyncpend, fp);
 			fwrite(&ixoriy, 1, 1, fp);	/* unsigned char */
 			fwrite(&new_ixoriy, 1, 1, fp);
 			fwrite(&intsample, 1, 1, fp);
 			fwrite(&op, 1, 1, fp);
-			fwrite_int_little_endian(&ulacharline, fp);
-			fwrite_int_little_endian(&nmipend, fp);
-			fwrite_int_little_endian(&intpend, fp);
-			fwrite_int_little_endian(&vsyncpend, fp);
-			fwrite_int_little_endian(&vsynclen, fp);
-			fwrite_int_little_endian(&hsyncskip, fp);
-			fwrite_int_little_endian(&framewait, fp);
 
-			/* Variables from the top of common.c */
-			fwrite_int_little_endian(&interrupted, fp);
-#endif
-			/* 65654/0x10076 bytes to here for 2.1.7 */
+			fwrite_int_little_endian(&scanlineCounter, fp);
+			fwrite_int_little_endian(&videoFlipFlop1Q, fp);
+			fwrite_int_little_endian(&videoFlipFlop2Q, fp);
+			fwrite_int_little_endian(&videoFlipFlop3Q, fp);
+			fwrite_int_little_endian(&videoFlipFlop3Clear, fp);
+			fwrite_int_little_endian(&prevVideoFlipFlop3Q, fp);
+			fwrite_int_little_endian(&lineClockCarryCounter, fp);
+			fwrite_int_little_endian(&scanline_len, fp);
+			fwrite_int_little_endian(&sync_type, fp);
+			fwrite_int_little_endian(&nosync_lines, fp);
+
+            /* Variables from common.h */
+            fwrite_unsigned_long_little_endian(&tstates, fp);
+            fwrite(&UDGEnabled, 1, 1, fp);
+
+            fwrite_int_little_endian(&sound, fp);
+            fwrite_int_little_endian(&sound_vsync, fp);
+            fwrite_int_little_endian(&sound_ay, fp);
+            fwrite_int_little_endian(&sound_ay_type, fp);
+
+            fwrite_int_little_endian(&interrupted, fp);
+            fwrite_int_little_endian(&zx80, fp);
+
+            fwrite_int_little_endian(&chromamode, fp);
+            fwrite(&bordercolour, 1, 1, fp);
+            fwrite(&bordercolournew, 1, 1, fp);
+            fwrite(&fullcolour, 1, 1, fp);
+            fwrite(&chroma_set, 1, 1, fp);
 
 		} else {
 			if (found) {
@@ -663,86 +683,124 @@ int sdl_load_file(int parameter, int method) {
 #endif
 			if ((fp = fopen(fullpath, "rb")) != NULL) {
 				if (method == LOAD_FILE_METHOD_STATELOAD) {
-					/* Printer variables are reinitialised when a new file
-					 * is opened on output so saving them is futile.
-					 * Saving keyports and sound variables is unneccessary.
-					 * signal_int_flag is being updated by the SDL timer
-					 * likely in another thread so no point in saving that.
-					 * refresh_screen I'm forcing to 1 anyway.
-					 *
-					 * To make these files platform independent I'm saving
-					 * and restoring everything by the byte in little-endian
-					 * format. These are the integer sizes on my development
-					 * computer (GNU/Linux 32bit):
-					 *
-					 * sizeof(long) = 4 bytes
-					 * sizeof(int) = 4 bytes
-					 * sizeof(short) = 2 bytes
-					 * sizeof(char) = 1 byte */
+                    /* Printer variables are reinitialised when a new file
+                     * is opened on output so saving them is futile.
+                     * Saving keyports and sound variables is unneccessary.
+                     * signal_int_flag is being updated by the SDL timer
+                     * likely in another thread so no point in saving that.
+                     * refresh_screen I'm forcing to 1 anyway.
+                     *
+                     * To make these files platform independent I'm saving
+                     * and restoring everything by the byte in little-endian
+                     * format. These are the integer sizes on my development
+                     * computer (GNU/Linux 32bit):
+                     *
+                     * sizeof(long) = 4 bytes
+                     * sizeof(int) = 4 bytes
+                     * sizeof(short) = 2 bytes
+                     * sizeof(char) = 1 byte */
 
-					/* The entire contents of memory */
-					fread(mem, 1, 64 * 1024, fp);	/* unsigned char */
+                    /* The entire contents of memory */
+                    fread(mem, 1, 64 * 1024, fp);	/* unsigned char */
+                    fread_int_little_endian(&sdl_emulator.ramsize, fp);
+                    sdl_emulator_ramsize = sdl_emulator.ramsize; // Prevent reset
 
-#if 0
-					/* Variables from the top of z80.c */
-					fread_unsigned_long_little_endian(&tstates, fp);
-					fread_unsigned_long_little_endian(&frames, fp);
-					fread_int_little_endian(&liney, fp);
-					fread_int_little_endian(&vsy, fp);
-					fread_unsigned_long_little_endian(&linestart, fp);
-					fread_int_little_endian(&vsync_toggle, fp);
-					fread_int_little_endian(&vsync_lasttoggle, fp);
-#endif
-					/* Variables liberated from the top of mainloop */
-					fread(&a, 1, 1, fp);	/* unsigned char */
-					fread(&f, 1, 1, fp);
-					fread(&b, 1, 1, fp);
-					fread(&c, 1, 1, fp);
-					fread(&d, 1, 1, fp);
-					fread(&e, 1, 1, fp);
-					fread(&h, 1, 1, fp);
-					fread(&l, 1, 1, fp);
-					fread(&r, 1, 1, fp);
-					fread(&a1, 1, 1, fp);
-					fread(&f1, 1, 1, fp);
-					fread(&b1, 1, 1, fp);
-					fread(&c1, 1, 1, fp);
-					fread(&d1, 1, 1, fp);
-					fread(&e1, 1, 1, fp);
-					fread(&h1, 1, 1, fp);
-					fread(&l1, 1, 1, fp);
-					fread(&i, 1, 1, fp);
-					fread(&iff1, 1, 1, fp);
-					fread(&iff2, 1, 1, fp);
-					fread(&im, 1, 1, fp);
-					fread_unsigned_short_little_endian(&pc, fp);
-					fread_unsigned_short_little_endian(&ix, fp);
-					fread_unsigned_short_little_endian(&iy, fp);
-					fread_unsigned_short_little_endian(&sp, fp);
-					fread(&radjust, 1, 1, fp);	/* unsigned char */
-#if 0
-					fread_unsigned_long_little_endian(&nextlinetime, fp);
-					fread_unsigned_long_little_endian(&linegap, fp);
-					fread_unsigned_long_little_endian(&lastvsyncpend, fp);
-					fread(&ixoriy, 1, 1, fp);	/* unsigned char */
-					fread(&new_ixoriy, 1, 1, fp);
-					fread(&intsample, 1, 1, fp);
-					fread(&op, 1, 1, fp);
-					fread_int_little_endian(&ulacharline, fp);
-					fread_int_little_endian(&nmipend, fp);
-					fread_int_little_endian(&intpend, fp);
-					fread_int_little_endian(&vsyncpend, fp);
-					fread_int_little_endian(&vsynclen, fp);
-					fread_int_little_endian(&hsyncskip, fp);
-					fread_int_little_endian(&framewait, fp);
-#endif
-					/* Variables from the top of common.c */
-					fread_int_little_endian(&interrupted, fp);
+                    /* Variables from z80.h */
+                    fread_unsigned_long_little_endian(&frames, fp);
+                    fread_int_little_endian(&framewait, fp);
+                    fread_int_little_endian(&vsx, fp);
+                    fread_int_little_endian(&vsy, fp);
+                    fread_int_little_endian(&RasterX, fp);
+                    fread_int_little_endian(&RasterY, fp);
+                    fread_int_little_endian(&S_RasterX, fp);
+                    fread_int_little_endian(&S_RasterY, fp);
 
-					// Now restore memory partition and offsets
-					setDisplayBoundaries();
-					/* 65654/0x10076 bytes to here for 2.1.7 */
+                    fread_int_little_endian(&nmi_pending, fp);
+                    fread_int_little_endian(&hsync_pending, fp);
+                    fread_int_little_endian(&NMI_generator, fp);
+                    fread_int_little_endian(&VSYNC_state, fp);
+                    fread_int_little_endian(&HSYNC_state, fp);
+                    fread_int_little_endian(&SYNC_signal, fp);
+                    fread_int_little_endian(&psync, fp);
+                    fread_int_little_endian(&sync_len, fp);
+                    fread_int_little_endian(&rowcounter, fp);
+                    fread_int_little_endian(&hsync_counter, fp);
+                    fread_int_little_endian(&VSYNC_TOLERANCEMIN, fp);
+                    fread_int_little_endian(&VSYNC_TOLERANCEMAX, fp);
+                    fread_int_little_endian(&FRAME_SCAN, fp);
 
+                    fread(&rowcounter_hold, 1, 1, fp);
+                    fread(&running_rom, 1, 1, fp);
+                    fread(&frameNotSync, 1, 1, fp);
+
+                    /* Z80 Registers */
+                    fread(&a, 1, 1, fp);	/* unsigned char */
+                    fread(&f, 1, 1, fp);
+                    fread(&b, 1, 1, fp);
+                    fread(&c, 1, 1, fp);
+                    fread(&d, 1, 1, fp);
+                    fread(&e, 1, 1, fp);
+                    fread(&h, 1, 1, fp);
+                    fread(&l, 1, 1, fp);
+                    fread(&r, 1, 1, fp);
+                    fread(&a1, 1, 1, fp);
+                    fread(&f1, 1, 1, fp);
+                    fread(&b1, 1, 1, fp);
+                    fread(&c1, 1, 1, fp);
+                    fread(&d1, 1, 1, fp);
+                    fread(&e1, 1, 1, fp);
+                    fread(&h1, 1, 1, fp);
+                    fread(&l1, 1, 1, fp);
+                    fread(&i, 1, 1, fp);
+                    fread(&iff1, 1, 1, fp);
+                    fread(&iff2, 1, 1, fp);
+                    fread(&im, 1, 1, fp);
+                    fread_unsigned_short_little_endian(&pc, fp);
+                    fread_unsigned_short_little_endian(&ix, fp);
+                    fread_unsigned_short_little_endian(&iy, fp);
+                    fread_unsigned_short_little_endian(&sp, fp);
+                    fread_unsigned_short_little_endian(&m1cycles, fp);
+                    fread(&radjust, 1, 1, fp);	/* unsigned char */
+                    fread(&ixoriy, 1, 1, fp);	/* unsigned char */
+                    fread(&new_ixoriy, 1, 1, fp);
+                    fread(&intsample, 1, 1, fp);
+                    fread(&op, 1, 1, fp);
+
+                    fread_int_little_endian(&scanlineCounter, fp);
+                    fread_int_little_endian(&videoFlipFlop1Q, fp);
+                    fread_int_little_endian(&videoFlipFlop2Q, fp);
+                    fread_int_little_endian(&videoFlipFlop3Q, fp);
+                    fread_int_little_endian(&videoFlipFlop3Clear, fp);
+                    fread_int_little_endian(&prevVideoFlipFlop3Q, fp);
+                    fread_int_little_endian(&lineClockCarryCounter, fp);
+                    fread_int_little_endian(&scanline_len, fp);
+                    fread_int_little_endian(&sync_type, fp);
+                    fread_int_little_endian(&nosync_lines, fp);
+
+                    /* Variables from common.h */
+                    fread_unsigned_long_little_endian(&tstates, fp);
+                    fread(&UDGEnabled, 1, 1, fp);
+
+                    fread_int_little_endian(&sound, fp);
+                    fread_int_little_endian(&sound_vsync, fp);
+                    fread_int_little_endian(&sound_ay, fp);
+                    fread_int_little_endian(&sound_ay_type, fp);
+
+                    fread_int_little_endian(&interrupted, fp);
+                    fread_int_little_endian(&zx80, fp);
+                    sdl_emulator_model = zx80;
+
+                    fread_int_little_endian(&chromamode, fp);
+                    fread(&bordercolour, 1, 1, fp);
+                    fread(&bordercolournew, 1, 1, fp);
+                    fread(&fullcolour, 1, 1, fp);
+                    fread(&chroma_set, 1, 1, fp);
+
+                    // Restore memory partition and display offsets
+                    rom4k = (zx80 == 1) ? 1 : 0;
+                    init_mem_structures(sdl_emulator.ramsize);
+                    rom4k ? rom4kPatches() : rom8kPatches();
+                    setDisplayBoundaries();
 				} else {
 					if (method == LOAD_FILE_METHOD_AUTOLOAD ||
 						method == LOAD_FILE_METHOD_FORCEDLOAD)

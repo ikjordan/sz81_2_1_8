@@ -34,7 +34,7 @@ extern int ay_reg;
 
 /* variables to be stored in a save state */
 /* ZX81 and display state */
-extern unsigned long tstates, frames;
+extern unsigned long frames;
 extern int framewait;
 extern int vsx;
 extern int vsy;

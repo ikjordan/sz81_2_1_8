@@ -111,10 +111,6 @@ unsigned char chroma_set=0;
 
 /* not too many prototypes needed... :-) */
 
-
-
-
-
 void loadrom(void)
 {
 /* sz81 has already preloaded the ROMs so now this function
@@ -135,7 +131,7 @@ RomPatches_T rom_patches;
 RomPatches_T rom_patches;
 #endif
 
-void rom8kPatches()
+void rom8kPatches(void)
 {
 #ifdef LOAD_AND_SAVE
   rom_patches.save.start = SAVE_START_8K;
@@ -156,7 +152,7 @@ void rom8kPatches()
 #endif
 }
 
-void rom4kPatches()
+void rom4kPatches(void)
 {
 #ifdef LOAD_AND_SAVE
   rom_patches.save.start = SAVE_START_4K;
@@ -214,122 +210,105 @@ void initdisplay(void)
   disp.offset = -(disp.stride_bit * disp.start_y) - disp.start_x;
 }
 
-void initmem()
+void init_mem_structures(int ramsize)
 {
-int f;
-int ramsize;
-int count;
-int gap = 0;  // For 3K total RAM
+  int f;
+  int count;
+  int gap = 0;  // For 3K total RAM
 
-// Set ROM type
-rom4k = (zx80 == 1) ? 1 : 0;
-
-loadrom();
-if(rom4k && zx80)
+  /* ROM setup */
+  count=0;
+  for(f=0;f<16;f++)
   {
-  memset(mem+0x1000,0,0xf000);
-  }
-else
-  {
-  memset(mem+0x2000,0,0xe000);
+    memattr[f]=memattr[32+f]=0;
+    memptr[f]=memptr[32+f]=mem+1024*count;
+    count++;
+    if(count>=((rom4k && zx80)?4:8)) count=0;
   }
 
-/* ROM setup */
-count=0;
-for(f=0;f<16;f++)
+  useWRX = (sdl_emulator.wrx != HIRESDISABLED);
+  useWRX = useWRX || (ramsize < 3);
+
+  if ((ramsize == 56) || (ramsize == 40) || (ramsize == 24))
   {
-  memattr[f]=memattr[32+f]=0;
-  memptr[f]=memptr[32+f]=mem+1024*count;
-  count++;
-  if(count>=((rom4k && zx80)?4:8)) count=0;
+    ramsize -= 8;
+    LowRAM = true;
+  }
+  else
+  {
+    LowRAM = chr128 || useQSUDG;
+  }
+  count=0;
+  if (ramsize==3)
+  {
+    ramsize=4;
+    gap = 1;
+  }
+  for(f=16;f<32;f++)
+  {
+    memattr[f]=memattr[32+f]=1;
+    memptr[f]=memptr[32+f]=mem+1024*(16+((gap && count==3) ? 2 : count));
+    count++;
+    if(count>=ramsize) count=0;
   }
 
-/* RAM setup */
-ramsize=sdl_emulator.ramsize;
+  /* z81's ROM and RAM initialisation code is OK for <= 16K RAM but beyond
+  * that it requires a little tweaking.
+  *
+  * The following diagram shows the ZX81 + 8K ROM. The ZX80 version is
+  * the same except that each 8K ROM region will contain two copies of
+  * the 4K ROM.
+  *
+  * RAM less than 16K is mirrored throughout the 16K region.
+  *
+  * The ROM will only detect up to 8000h when setting RAMTOP, therefore
+  * having more than 16K RAM will require RAMTOP to be set by the user
+  * (or user program) to either 49152 for 32K or 65535 for 48/56K.
+  *
+  *           1K to 16K       32K           48K           56K      Extra Info.
+  *
+  *  65535  +----------+  +----------+  +----------+  +----------+
+  * (FFFFh) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | DFILE can be
+  *         | mirrored |  | mirrored |  |          |  |          | wholly here.
+  *         |          |  |          |  |          |  |          |
+  *         |          |  |          |  |          |  |          | BASIC variables
+  *         |          |  |          |  |          |  |          | can go here.
+  *  49152  +----------+  +----------+  +----------+  +----------+
+  * (C000h) | 8K ROM   |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | BASIC program
+  *         | mirrored |  |          |  |          |  |          | is restricted
+  *  40960  +----------+  |          |  |          |  |          | to here.
+  * (A000h) | 8K ROM   |  |          |  |          |  |          |
+  *         | mirrored |  |          |  |          |  |          |
+  *  32768  +----------+  +----------+  +----------+  +----------+
+  * (8000h) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | No machine code
+  *         |          |  |          |  |          |  |          | beyond here.
+  *         |          |  |          |  |          |  |          |
+  *         |          |  |          |  |          |  |          | DFILE can be
+  *         |          |  |          |  |          |  |          | wholly here.
+  *  16384  +----------+  +----------+  +----------+  +----------+
+  * (4000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K RAM   |
+  *         | mirrored |  | mirrored |  | mirrored |  |          |
+  *   8192  +----------+  +----------+  +----------+  +----------+
+  * (2000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K ROM   |
+  *         |          |  |          |  |          |  |          |
+  *      0  +----------+  +----------+  +----------+  +----------+
+  */
 
-useWRX = (sdl_emulator.wrx != HIRESDISABLED);
-useWRX = useWRX || (ramsize < 3);
-
-if ((ramsize == 56) || (ramsize == 40) || (ramsize == 24))
-{
-  ramsize -= 8;
-  LowRAM = true;
-}
-else
-{
-  LowRAM = chr128 || useQSUDG;
-}
-count=0;
-if (ramsize==3)
-{
-  ramsize=4;
-  gap = 1;
-}
-for(f=16;f<32;f++)
+  switch(ramsize)
   {
-  memattr[f]=memattr[32+f]=1;
-  memptr[f]=memptr[32+f]=mem+1024*(16+((gap && count==3) ? 2 : count));
-  count++;
-  if(count>=ramsize) count=0;
-  }
-
-/* z81's ROM and RAM initialisation code is OK for <= 16K RAM but beyond
- * that it requires a little tweaking.
- *
- * The following diagram shows the ZX81 + 8K ROM. The ZX80 version is
- * the same except that each 8K ROM region will contain two copies of
- * the 4K ROM.
- *
- * RAM less than 16K is mirrored throughout the 16K region.
- *
- * The ROM will only detect up to 8000h when setting RAMTOP, therefore
- * having more than 16K RAM will require RAMTOP to be set by the user
- * (or user program) to either 49152 for 32K or 65535 for 48/56K.
- *
- *           1K to 16K       32K           48K           56K      Extra Info.
- *
- *  65535  +----------+  +----------+  +----------+  +----------+
- * (FFFFh) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | DFILE can be
- *         | mirrored |  | mirrored |  |          |  |          | wholly here.
- *         |          |  |          |  |          |  |          |
- *         |          |  |          |  |          |  |          | BASIC variables
- *         |          |  |          |  |          |  |          | can go here.
- *  49152  +----------+  +----------+  +----------+  +----------+
- * (C000h) | 8K ROM   |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | BASIC program
- *         | mirrored |  |          |  |          |  |          | is restricted
- *  40960  +----------+  |          |  |          |  |          | to here.
- * (A000h) | 8K ROM   |  |          |  |          |  |          |
- *         | mirrored |  |          |  |          |  |          |
- *  32768  +----------+  +----------+  +----------+  +----------+
- * (8000h) | 16K RAM  |  | 16K RAM  |  | 16K RAM  |  | 16K RAM  | No machine code
- *         |          |  |          |  |          |  |          | beyond here.
- *         |          |  |          |  |          |  |          |
- *         |          |  |          |  |          |  |          | DFILE can be
- *         |          |  |          |  |          |  |          | wholly here.
- *  16384  +----------+  +----------+  +----------+  +----------+
- * (4000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K RAM   |
- *         | mirrored |  | mirrored |  | mirrored |  |          |
- *   8192  +----------+  +----------+  +----------+  +----------+
- * (2000h) | 8K ROM   |  | 8K ROM   |  | 8K ROM   |  | 8K ROM   |
- *         |          |  |          |  |          |  |          |
- *      0  +----------+  +----------+  +----------+  +----------+
- */
-
-switch(ramsize)
-  {
-  case 48:
-    for(f=48;f<64;f++)
-      {
-      memattr[f]=1;
-      memptr[f]=mem+1024*f;
-      }
-  case 32:
-    for(f=32;f<48;f++)
-      {
-      memattr[f]=1;
-      memptr[f]=mem+1024*f;
-      }
-    break;
+    case 48:
+      for(f=48;f<64;f++)
+        {
+        memattr[f]=1;
+        memptr[f]=mem+1024*f;
+        }
+    case 32:
+      for(f=32;f<48;f++)
+        {
+        memattr[f]=1;
+        memptr[f]=mem+1024*f;
+        }
+      break;
   }
 
   if (LowRAM)
@@ -340,15 +319,37 @@ switch(ramsize)
         memptr[f]=mem+1024*f;
       }
   }
+
+  if(rom4k && zx80)
+    rom4kPatches();
+  else
+    rom8kPatches();
+
+}
+
+void initmem()
+{
+  // Set ROM type
+  rom4k = (zx80 == 1) ? 1 : 0;
+
+  loadrom();
+
+  // Clear everything up from ROM
+  if(rom4k)
+  {
+    memset(mem+0x1000,0,0xf000);
+  }
+  else
+  {
+    memset(mem+0x2000,0,0xe000);
+  }
+
+  init_mem_structures(sdl_emulator.ramsize);
+
   useQSUDG = (sdl_emulator.chrgen == CHRGENQS);
   chr128 = (sdl_emulator.chrgen == CHRGENCHR16);
   m1not = (sdl_emulator.m1not != 0);
   UDGEnabled = false;
-
-if(rom4k && zx80)
-  rom4kPatches();
-else
-  rom8kPatches();
 }
 
 

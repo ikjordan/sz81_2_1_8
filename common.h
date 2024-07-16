@@ -170,4 +170,8 @@ extern void frame_pause(void);
 extern void common_reset(void);
 extern void initdisplay(void);
 
+extern void init_mem_structures(int ramsize);
+extern void rom4kPatches(void);
+extern void rom8kPatches(void);
+
 #endif

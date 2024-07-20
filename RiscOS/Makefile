@@ -25,7 +25,7 @@ OBJECT3=sound.o z80.o loadp.o sdl_sound.o sdl_video.o common.o sdl_main.o sdl_en
 OBJECTS=$(OBJECT1) $(OBJECT3)
 
 VERSION=2_1_8d
-CC=gcc -static
+CC=gcc -static -std=c99
 
 # These should be ok for most.
 CFLAGS+=-Wall -Wno-unused-result -ISDL -DVERSION=\"$(VERSION)\" -DENABLE_EMULATION_SPEED_ADJUST \

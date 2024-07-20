@@ -7,7 +7,7 @@
 #include "sdl.h"
 #include "loadp.h"
 
-#define LOADP_INITIAL_TCOUNT 0xeeeeeeee
+#define LOADP_INITIAL_TCOUNT        0xeeeeeeee
 
 #define LOADP_HIGH_LENGTH           488         // 150.1 us
 #define LOADP_LOW_LENGTH            487         // 149.8 us
@@ -43,7 +43,7 @@ static BitState_t bit_state = ZERO_BIT;
 
 static PulseState_t pulse_state = SILENCE_PULSE;
 static uint32_t pulse_length_max = LOADP_SILENCE_INTRO_LENGTH;
-static uint pulse_count = 0;
+static uint32_t pulse_count = 0;
 static char byte_to_send = 0;
 
 static void moveToNextByte(void);

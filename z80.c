@@ -196,13 +196,14 @@ static const int HSYNC_END = 32;
 static const int HLEN = HLENGTH;
 static const int MAX_JMP = 8;
 
-static const int scanlinePixelLength = (HLENGTH << 1);
-static const int ZX80HSyncDuration = 20;
+/* The following are defined as the RiscOS gcc compiler fails if they are static const */
+#define scanlinePixelLength                         (HLENGTH << 1)
+#define ZX80HSyncDuration                           20
 
-static const int ZX80HSyncAcceptanceDuration = (3 * ZX80HSyncDuration) / 2;
-static const int ZX80HSyncAcceptanceDurationPixels = ZX80HSyncAcceptanceDuration * 2;
-static const int ZX80MaximumSupportedScanlineOverhang = ZX80HSyncDuration * 2;
-static const int ZX80MaximumSupportedScanlineOverhangPixels = ZX80MaximumSupportedScanlineOverhang * 2;
+#define ZX80HSyncAcceptanceDuration                 ((3 * ZX80HSyncDuration) / 2)
+#define ZX80HSyncAcceptanceDurationPixels           (ZX80HSyncAcceptanceDuration * 2)
+#define ZX80MaximumSupportedScanlineOverhang        (ZX80HSyncDuration * 2)
+#define ZX80MaximumSupportedScanlineOverhangPixels  (ZX80MaximumSupportedScanlineOverhang * 2)
 
 static const int PortActiveDuration = 3;
 static const int ZX80HSyncAcceptancePixelPosition = scanlinePixelLength - ZX80HSyncAcceptanceDurationPixels;

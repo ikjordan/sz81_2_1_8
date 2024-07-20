@@ -34,6 +34,10 @@
 	#include "amiga.h" /* Amiga-specifics */
 #endif
 
+#include "common.h"
+#include "sound.h"
+#include "z80.h"
+
 /* Defines */
 /* Uncomment all of these to view the inner workings. Then monitor
  * the console output and press alt+r to cycle the resolutions.
@@ -68,35 +72,12 @@
 #define COMP_DIALOG 1024
 #define COMP_ALL ((COMP_DIALOG - 1) | COMP_DIALOG)
 
-/* Emulator variables I require access to */
-/* Variables from the top of z80.c */
-extern unsigned long tstates, frames;
-extern int liney;
-/* Variables liberated from the top of mainloop */
-extern unsigned char a, f, b, c, d, e, h, l;
-extern unsigned char r, a1, f1, b1, c1, d1, e1, h1, l1, i, iff1, iff2, im;
-extern unsigned short pc;
-extern unsigned short ix, iy, sp;
-extern unsigned char radjust;
-extern unsigned long nextlinetime, linegap, lastvsyncpend;
-extern unsigned char ixoriy, new_ixoriy;
-extern unsigned char intsample;
-extern unsigned char op;
-extern int ulacharline;
-extern int nmipend, intpend, vsyncpend, vsynclen;
-extern int hsyncskip;
-extern int framewait;
-/* Variables from the top of common.c */
-extern unsigned char mem[];
-extern int sound, sound_vsync;
-extern int sound_ay, sound_ay_type;
 extern int signal_int_flag;
-extern int interrupted;
 extern char *zxpfilename;
 extern int load_selector_state;
-extern int refresh_screen;
-/* Variables from the top of sound.c */
-extern int sound_stereo, sound_stereo_acb;
+
+extern int sdl_emulator_ramsize;
+extern int sdl_emulator_model;
 
 /* Variables */
 char startdir[256];
@@ -113,10 +94,6 @@ struct runtimeoptions runtime_options[MAX_RUNTIME_OPTIONS];
 extern void initmem(void);
 extern void frame_pause(void);
 extern void do_interrupt(void);
-#ifdef OSS_SOUND_SUPPORT
-	extern void sound_ay_setvol(void);
-	extern void sound_framesiz_init(void);
-#endif
 
 /* Function prototypes */
 int get_active_component(void);

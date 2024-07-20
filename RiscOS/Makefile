@@ -24,12 +24,12 @@ OBJECT1=sdl_hotspots.o \
 OBJECT3=sound.o z80.o loadp.o sdl_sound.o sdl_video.o common.o sdl_main.o sdl_engine.o
 OBJECTS=$(OBJECT1) $(OBJECT3)
 
-VERSION=2_1_8a
-CC=gcc -static
+VERSION=2_1_8d
+CC=gcc -static -std=c99
 
 # These should be ok for most.
 CFLAGS+=-Wall -Wno-unused-result -ISDL -DVERSION=\"$(VERSION)\" -DENABLE_EMULATION_SPEED_ADJUST \
-	-DPLATFORM_RISCOS -DPACKAGE_DATA_DIR=\"$(PACKAGE_DATA_DIR)\" $(SOUNDDEF) -DSZ81 -D_DZ80_EXCLUDE_SCRIPT -DLOAD_AND_SAVE
+	-DPLATFORM_RISCOS -DPACKAGE_DATA_DIR=\"$(PACKAGE_DATA_DIR)\" $(SOUNDDEF) -D_DZ80_EXCLUDE_SCRIPT -DLOAD_AND_SAVE
 
 LINK=$(CC)
 LDFLAGS=

@@ -135,7 +135,7 @@ void sdl_hotspots_init(void) {
 	hotspots[HS_VKEYB_1 + 9].remap_id = SDLK_0;
 	hotspots[HS_VKEYB_Q].remap_id = SDLK_q;
 	hotspots[HS_VKEYB_Q + 1].remap_id = SDLK_w;
-	if (*sdl_emulator.model == MODEL_ZX80) 
+	if (*sdl_emulator.model == MODEL_ZX80)
 		hotspots[HS_VKEYB_Q + 1].flags |= HS_PROP_SELECTED;	/* Default selected */
 	hotspots[HS_VKEYB_Q + 2].remap_id = SDLK_e;
 	hotspots[HS_VKEYB_Q + 3].remap_id = SDLK_r;
@@ -152,7 +152,7 @@ void sdl_hotspots_init(void) {
 	hotspots[HS_VKEYB_A + 4].remap_id = SDLK_g;
 	hotspots[HS_VKEYB_A + 5].remap_id = SDLK_h;
 	hotspots[HS_VKEYB_A + 6].remap_id = SDLK_j;
-	if (*sdl_emulator.model == MODEL_ZX81) 
+	if ((*sdl_emulator.model == MODEL_ZX81) || (*sdl_emulator.model == MODEL_ZX80_8K))
 		hotspots[HS_VKEYB_A + 6].flags |= HS_PROP_SELECTED;	/* Default selected */
 	hotspots[HS_VKEYB_A + 7].remap_id = SDLK_k;
 	hotspots[HS_VKEYB_A + 8].remap_id = SDLK_l;
@@ -191,6 +191,7 @@ void sdl_hotspots_init(void) {
 	for (count = HS_RUNOPTS0_RUNOPTS0; count <= HS_RUNOPTS0_NEXT; count++)
 		hotspots[count].gid = HS_GRP_RUNOPTS0;
 	hotspots[HS_RUNOPTS0_ZX80].remap_id = SDLK_HOME;
+	hotspots[HS_RUNOPTS0_ZX80_8K].remap_id = SDLK_0;
 	hotspots[HS_RUNOPTS0_ZX81].flags |= HS_PROP_SELECTED;	/* Default selected */
 	hotspots[HS_RUNOPTS0_ZX81].remap_id = SDLK_END;
 	hotspots[HS_RUNOPTS0_RAM_DN].remap_id = SDLK_INSERT;
@@ -715,10 +716,13 @@ void hotspots_resize(int gid) {
 		}
 		hotspots[HS_RUNOPTS0_RUNOPTS0].hit_w = 256 * video.scale;
 		hotspots[HS_RUNOPTS0_RUNOPTS0].hit_h = 192 * video.scale;
-		hotspots[HS_RUNOPTS0_ZX80].hit_x += 2.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX80].hit_x += 0.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_ZX80].hit_y += 3.5 * 8 * video.scale;
-		hotspots[HS_RUNOPTS0_ZX80].hit_w = 7.5 * 8 * video.scale;
-		hotspots[HS_RUNOPTS0_ZX81].hit_x += 12.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX80].hit_w = 10.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX80_8K].hit_x += 12.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX80_8K].hit_y += 3.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX80_8K].hit_w = 10.5 * 8 * video.scale;
+		hotspots[HS_RUNOPTS0_ZX81].hit_x += 24.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_ZX81].hit_y += 3.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_ZX81].hit_w = 7.5 * 8 * video.scale;
 		hotspots[HS_RUNOPTS0_RAM_DN].hit_x += 9.5 * 8 * video.scale;

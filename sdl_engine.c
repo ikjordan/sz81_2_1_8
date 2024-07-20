@@ -90,7 +90,7 @@ int sdl_init(void) {
 	sdl_emulator.wrx = HIRESWRX;
 	sdl_emulator.chrgen = CHRGENSINCLAIR;
 #endif
-	sdl_emulator.frameskip = 1;		/* Equivalent to z81's scrn_freq=2 */
+	sdl_emulator.frameskip = 0;		/* Make no skip the default */
 	sdl_emulator.ramsize = 16;		/* 16K is the default */
 	sdl_emulator.invert = 0;		/* Off is the default */
 	#if defined(PLATFORM_GP2X)
@@ -232,8 +232,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 				romLoad = true;
 			} else if (!strcmp (argv[count], "-s")) {
 				romSave = true;
-			} else if (!strcmp (argv[count], "-r")) {
-				rom4k = 0;
 			} else if (sscanf (argv[count], "-v%i",
 			    &vertTol) == 1 ) {
 				if ((vertTol > 150) || (vertTol < 1)) {
@@ -272,7 +270,6 @@ int sdl_com_line_process(int argc, char *argv[]) {
 					"  -c  Do not centre screen in display window\n"
 					"  -l  Emulate real time load speeds\n"
 					"  -s  Emulate real time save speeds\n"
-					"  -r  Always use 8K ROM\n"
 					"  -vTOL      e.g. -v100 for 100 line vertical sync tolerance\n"
 					"  -XRESxYRES e.g. -800x480\n\n");
 				return TRUE;
@@ -338,12 +335,12 @@ int sdl_com_line_process(int argc, char *argv[]) {
 /* This function monitors program component state changes and if something
  * needs to be done as a result of a state change then it is managed from
  * here to keep things organised and to cut down on code duplication */
+int sdl_emulator_ramsize = 16;      // Here so can handle save state
+int sdl_emulator_model = MODEL_ZX81;
 
 void sdl_component_executive(void) {
 	static int active_components = 0;
 	static int ctrl_remapper_state = FALSE;
-	static int sdl_emulator_model = 0;
-	static int sdl_emulator_ramsize = 16;
 	static int sdl_emulator_invert = 0;
 	static int sdl_emulator_m1not = FALSE;
 	static int sdl_emulator_wrx = HIRESWRX;

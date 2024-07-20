@@ -22,6 +22,8 @@
 /*
    Display constants
  */
+#ifndef _COMMON_H_
+#define _COMMON_H_
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -116,15 +118,12 @@ extern unsigned char mem[];
 extern unsigned char *memptr[64];
 extern int memattr[64];
 extern unsigned char keyports[9];
-extern unsigned long tstates,tsmax;
-extern int help,sound,sound_vsync,sound_ay,sound_ay_type,vsync_visuals;
+
+extern unsigned long tstates;
+extern int help,sound,sound_vsync,sound_ay,sound_ay_type;
 extern int invert_screen;
 
 extern int interrupted;
-extern int taguladisp;
-extern int autoload;
-extern int scrn_freq;
-extern int fakedispx,fakedispy;
 
 extern int refresh_screen;
 extern int zx80;
@@ -156,17 +155,9 @@ extern unsigned char bordercolournew;
 extern unsigned char fullcolour;
 extern unsigned char chroma_set;
 
-#ifndef SZ81	/* Added by Thunor */
-extern void sighandler(int a);
-extern void startsigsandtimer();
-extern char *libdir(char *file);
-extern void exit_program(void);
-extern void loadhelp(void);
-extern void save_p(int a);
-extern void load_p(int a);
-extern void reset81();
-extern void parseoptions(int argc,char *argv[]);
-#endif
+/* Constants*/
+extern const unsigned long tsmax;
+
 extern void initmem();
 extern void zxpopen(void);
 extern void zxpclose(void);
@@ -176,8 +167,11 @@ extern void do_interrupt();
 extern void update_kybd();
 extern void do_interrupt();
 extern void frame_pause(void);
-#ifdef SZ81	/* Added by Thunor */
 extern void common_reset(void);
 extern void initdisplay(void);
-#endif
 
+extern void init_mem_structures(int ramsize);
+extern void rom4kPatches(void);
+extern void rom8kPatches(void);
+
+#endif

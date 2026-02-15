@@ -287,7 +287,15 @@ static void loadAndSaveROM(void)
   {
     if (pc == rom_patches.load.start) // load
     {
-      int run_rom = sdl_load_file(de, (de < 0x8000) ? LOAD_FILE_METHOD_NAMEDLOAD : LOAD_FILE_METHOD_SELECTLOAD);
+      int run_rom;
+      if(!rom4k && de < 0x8000)
+      {
+        run_rom = sdl_load_file(de, LOAD_FILE_METHOD_NAMEDLOAD);
+      }
+      else /* if((!rom4k && de >= 0x8000) || rom4k) */
+      {
+        run_rom = sdl_load_file(rom4k ? hl : de, LOAD_FILE_METHOD_SELECTLOAD);
+      }
       if ((!rom_patches.load.use_rom) || (run_rom != RUN_ROM))
       {
         pc = rom_patches.rstrtAddr;
@@ -296,7 +304,7 @@ static void loadAndSaveROM(void)
     }
     else if (pc == rom_patches.save.start) // save
     {
-      int run_rom = sdl_save_file(hl, SAVE_FILE_METHOD_NAMEDSAVE);
+      int run_rom = sdl_save_file(hl, rom4k ? SAVE_FILE_METHOD_UNNAMEDSAVE : SAVE_FILE_METHOD_NAMEDSAVE);
       if ((!rom_patches.save.use_rom) || (run_rom != RUN_ROM))
       {
         pc = rom_patches.rstrtAddr;

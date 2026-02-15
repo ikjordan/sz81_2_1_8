@@ -24,7 +24,7 @@ OBJECT1=sdl_hotspots.o \
 OBJECT3=sound.o z80.o loadp.o sdl_sound.o sdl_video.o common.o sdl_main.o sdl_engine.o
 OBJECTS=$(OBJECT1) $(OBJECT3)
 
-VERSION=2_1_8d
+VERSION=2_1_8e
 CC=gcc -static -std=c99
 
 # These should be ok for most.

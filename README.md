@@ -72,19 +72,27 @@ Modify the symlink `libSDL.so` at:
 `export SDL_VIDEODRIVER=wayland;./sz81`
 
 ## To build on Risc OS
-The script `mkrisc.sh` creates a directory tree under `riscroot` that can be copied to Risc OS to compile with the gcc available from !PackMan
 
-The SDL 1.2 libraries and includes must be downloaded from !Packman and placed where they can be found from the Makefile, i.e. the `SDL` directory` should have the same parent as the `c`directory
+### Pre-requisites
+
+1. The script `mkrisc.sh` creates a directory tree under `riscroot` that can be copied to Risc OS to compile
+
+2. In RiscOS install `GCC4` and `Make` from `!Packman`
+`GCC4` requires more than the default memory to compile. Use TaskManager to increase the next slot to 32MB. After doing this, launch a new TaskWindow (Control F12). `GCC4` will have enough memory to run in that TaskWindow
+
+3. The SDL 1.2 libraries and includes must be downloaded from `!Packman` and placed where they can be found from the sz81 Makefile; i.e. the `SDL` directory should have the same parent as the `c`directory. To copy the directory, the directory name must be changed from `!SDL` to `SDL`
 
 ### Notes
+
 1. The compiler heap size needs to be increased to build the z80 emulator  
 `*SetEval cc1$HeapMax 128`
-2. Enter `gcc` in the comand window to enable detection of `Make`
+2. Enter `gcc` in the command window to enable detection of `Make`
 3. The executable needs to be converted to aif format
 `*elf2aif sz81`
-4. The app types for the ! files should be changed back to obey (the type is lost when saving to github)
+4. The app types for the ! files should be changed back to `Obey` (the type is lost when saving to github)
 5. To create the packaged executable, create a new directory and copy `sz81`, `!Boot`, `!Run`, `!Sprites`, `data` and `games-etc` to that directory. Then rename the directory to `!sz81`
 6. dot extensions result in files with slash. ie. saving `prog.p` results in a file named `prog/p`
 
 ## Pre-build RiscOS executable
-An executable, zipped using RiscOS `!Infozip` and named `sz81c.zip`, can be found in the `RiscOS` directory
+
+An executable, zipped using RiscOS `!SparkFS` and named `sz81e.zip`, can be found in the `RiscOS` directory
